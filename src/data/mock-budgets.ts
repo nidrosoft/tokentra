@@ -1,0 +1,118 @@
+import type { Budget, BudgetProgress } from "@/types";
+
+export const mockBudgets: Budget[] = [
+  {
+    id: "budget_1",
+    organizationId: "org_1",
+    name: "Organization Total",
+    amount: 25000,
+    currency: "USD",
+    period: "monthly",
+    scope: { type: "organization", id: "org_1", name: "Acme Corp" },
+    currentSpend: 12847.32,
+    status: "ok",
+    alertThresholds: [50, 80, 100],
+    hardLimit: false,
+    createdAt: new Date("2024-01-01T00:00:00Z"),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
+  },
+  {
+    id: "budget_2",
+    organizationId: "org_1",
+    name: "Engineering Team",
+    amount: 8000,
+    currency: "USD",
+    period: "monthly",
+    scope: { type: "team", id: "team_eng", name: "Engineering" },
+    currentSpend: 7234.50,
+    status: "warning",
+    alertThresholds: [50, 80, 100],
+    hardLimit: false,
+    createdAt: new Date("2024-01-01T00:00:00Z"),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5),
+  },
+  {
+    id: "budget_3",
+    organizationId: "org_1",
+    name: "Product Team",
+    amount: 5000,
+    currency: "USD",
+    period: "monthly",
+    scope: { type: "team", id: "team_prod", name: "Product" },
+    currentSpend: 2456.80,
+    status: "ok",
+    alertThresholds: [50, 80, 100],
+    hardLimit: false,
+    createdAt: new Date("2024-01-02T00:00:00Z"),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 8),
+  },
+  {
+    id: "budget_4",
+    organizationId: "org_1",
+    name: "Chat Application",
+    amount: 3000,
+    currency: "USD",
+    period: "monthly",
+    scope: { type: "project", id: "proj_chat", name: "Chat App" },
+    currentSpend: 3245.00,
+    status: "exceeded",
+    alertThresholds: [50, 80, 100],
+    hardLimit: true,
+    createdAt: new Date("2024-01-05T00:00:00Z"),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 30),
+  },
+  {
+    id: "budget_5",
+    organizationId: "org_1",
+    name: "OpenAI Provider",
+    amount: 10000,
+    currency: "USD",
+    period: "monthly",
+    scope: { type: "provider", id: "openai", name: "OpenAI" },
+    currentSpend: 7234.50,
+    status: "ok",
+    alertThresholds: [50, 80, 100],
+    hardLimit: false,
+    createdAt: new Date("2024-01-01T00:00:00Z"),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12),
+  },
+  {
+    id: "budget_6",
+    organizationId: "org_1",
+    name: "GPT-4o Model",
+    amount: 6000,
+    currency: "USD",
+    period: "monthly",
+    scope: { type: "model", id: "gpt-4o", name: "gpt-4o" },
+    currentSpend: 4521.30,
+    status: "ok",
+    alertThresholds: [50, 80, 100],
+    hardLimit: false,
+    createdAt: new Date("2024-01-03T00:00:00Z"),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+  },
+];
+
+// Calculate days remaining in current period
+const now = new Date();
+const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+const daysRemaining = Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+export const mockBudgetProgress: Record<string, BudgetProgress> = {
+  budget_1: { budgetId: "budget_1", spent: 12847.32, remaining: 12152.68, percentUsed: 51.4, projectedOverage: 0, daysRemaining },
+  budget_2: { budgetId: "budget_2", spent: 7234.50, remaining: 765.50, percentUsed: 90.4, projectedOverage: 1200, daysRemaining },
+  budget_3: { budgetId: "budget_3", spent: 2456.80, remaining: 2543.20, percentUsed: 49.1, projectedOverage: 0, daysRemaining },
+  budget_4: { budgetId: "budget_4", spent: 3245.00, remaining: 0, percentUsed: 108.2, projectedOverage: 500, daysRemaining },
+  budget_5: { budgetId: "budget_5", spent: 7234.50, remaining: 2765.50, percentUsed: 72.3, projectedOverage: 0, daysRemaining },
+  budget_6: { budgetId: "budget_6", spent: 4521.30, remaining: 1478.70, percentUsed: 75.4, projectedOverage: 0, daysRemaining },
+};
+
+// Budget summary stats
+export const mockBudgetSummary = {
+  totalBudgets: mockBudgets.length,
+  totalAllocated: mockBudgets.reduce((sum, b) => sum + b.amount, 0),
+  totalSpent: mockBudgets.reduce((sum, b) => sum + b.currentSpend, 0),
+  budgetsOk: mockBudgets.filter((b) => b.status === "ok").length,
+  budgetsWarning: mockBudgets.filter((b) => b.status === "warning").length,
+  budgetsExceeded: mockBudgets.filter((b) => b.status === "exceeded").length,
+};

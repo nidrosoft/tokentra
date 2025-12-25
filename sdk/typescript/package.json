@@ -1,0 +1,35 @@
+{
+  "name": "@tokentra/sdk",
+  "version": "0.1.0",
+  "description": "TokenTRA SDK for tracking AI costs and usage",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "tokentra",
+    "ai",
+    "llm",
+    "cost-tracking",
+    "openai",
+    "anthropic"
+  ],
+  "author": "TokenTRA",
+  "license": "MIT",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
