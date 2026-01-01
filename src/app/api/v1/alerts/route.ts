@@ -1,9 +1,168 @@
-import { NextRequest, NextResponse } from "next/server";
+/**
+ * Alert Rules API
+ * 
+ * GET /api/v1/alerts - List all alert rules for the organization
+ * POST /api/v1/alerts - Create a new alert rule
+ */
 
+import { NextRequest, NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/server";
+import type { AlertRule, AlertRuleConfig, NotificationChannel } from "@/lib/alerting/types";
+
+// Demo organization ID for development
+const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
+
+/**
+ * GET /api/v1/alerts
+ * List all alert rules for the organization
+ */
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ success: true, data: [] });
+  try {
+    const supabase = createServiceClient();
+    const { searchParams } = new URL(request.url);
+    
+    // Get organization ID (from auth or demo)
+    const orgId = searchParams.get("orgId") || DEMO_ORG_ID;
+    const enabled = searchParams.get("enabled");
+    const type = searchParams.get("type");
+
+    // Build query
+    let query = supabase
+      .from("alert_rules")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false });
+
+    // Apply filters
+    if (enabled !== null) {
+      query = query.eq("enabled", enabled === "true");
+    }
+    if (type) {
+      query = query.eq("type", type);
+    }
+
+    const { data: rules, error } = await query;
+
+    if (error) {
+      console.error("[Alerts API] Error fetching rules:", error);
+      return NextResponse.json(
+        { success: false, error: "Failed to fetch alert rules" },
+        { status: 500 }
+      );
+    }
+
+    // Map to frontend format
+    const mappedRules = (rules || []).map(mapRuleFromDb);
+
+    return NextResponse.json({
+      success: true,
+      data: mappedRules,
+      total: mappedRules.length,
+    });
+  } catch (error) {
+    console.error("[Alerts API] Unexpected error:", error);
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }
 
+/**
+ * POST /api/v1/alerts
+ * Create a new alert rule
+ */
 export async function POST(request: NextRequest) {
-  return NextResponse.json({ success: true, data: {} }, { status: 201 });
+  try {
+    const supabase = createServiceClient();
+    const body = await request.json();
+
+    // Validate required fields
+    if (!body.name || !body.type || !body.config) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields: name, type, config" },
+        { status: 400 }
+      );
+    }
+
+    // Get organization ID (from auth or demo)
+    const orgId = body.orgId || DEMO_ORG_ID;
+
+    // Build condition from config for legacy compatibility
+    const condition = body.condition || {
+      metric: body.config?.metric || "daily_cost",
+      operator: body.config?.operator || "gt",
+      value: body.config?.threshold ?? body.config?.value ?? 0,
+      timeWindow: body.config?.timeWindow,
+    };
+
+    // Prepare rule data
+    const ruleData = {
+      organization_id: orgId,
+      name: body.name,
+      description: body.description || null,
+      type: body.type,
+      enabled: body.enabled ?? true,
+      condition: condition,
+      config: body.config,
+      channels: body.channels || [],
+      cooldown_minutes: body.cooldownMinutes || 60,
+      max_alerts_per_hour: body.maxAlertsPerHour || 10,
+      active_hours: body.activeHours || null,
+      active_days: body.activeDays || null,
+      created_by: body.createdBy || null,
+    };
+
+    // Insert rule
+    const { data: rule, error } = await supabase
+      .from("alert_rules")
+      .insert(ruleData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[Alerts API] Error creating rule:", error);
+      return NextResponse.json(
+        { success: false, error: "Failed to create alert rule" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: mapRuleFromDb(rule),
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("[Alerts API] Unexpected error:", error);
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Map database rule to frontend format
+ */
+function mapRuleFromDb(dbRule: Record<string, unknown>): AlertRule {
+  return {
+    id: dbRule.id as string,
+    orgId: dbRule.organization_id as string,
+    name: dbRule.name as string,
+    description: dbRule.description as string | undefined,
+    type: dbRule.type as AlertRule["type"],
+    enabled: dbRule.enabled as boolean,
+    config: dbRule.config as AlertRuleConfig,
+    channels: (dbRule.channels as NotificationChannel[]) || [],
+    cooldownMinutes: dbRule.cooldown_minutes as number | undefined,
+    maxAlertsPerHour: dbRule.max_alerts_per_hour as number | undefined,
+    activeHours: dbRule.active_hours as AlertRule["activeHours"],
+    activeDays: dbRule.active_days as number[] | undefined,
+    createdAt: new Date(dbRule.created_at as string),
+    updatedAt: new Date(dbRule.updated_at as string),
+    createdBy: dbRule.created_by as string | undefined,
+  };
 }

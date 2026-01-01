@@ -260,7 +260,7 @@ export const DashboardSidebar = () => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const SLIM_WIDTH = 68;
+  const SLIM_WIDTH = 80;
   const EXPANDED_WIDTH = 280;
 
   const toggleSidebar = () => setIsExpanded(!isExpanded);
@@ -351,6 +351,19 @@ export const DashboardSidebar = () => {
         transition={{ type: "spring", damping: 26, stiffness: 220 }}
         className="relative hidden h-screen flex-col border-r border-secondary bg-primary lg:flex"
       >
+        {/* Collapse Toggle Button - positioned outside overflow container */}
+        <button
+          onClick={toggleSidebar}
+          className="absolute right-0 top-8 z-50 flex size-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-secondary bg-primary text-fg-quaternary shadow-sm transition-colors hover:bg-secondary hover:text-fg-secondary"
+          aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {isExpanded ? (
+            <Iconsax.ArrowLeft2 size={14} variant="Outline" color="currentColor" />
+          ) : (
+            <Iconsax.ArrowRight2 size={14} variant="Outline" color="currentColor" />
+          )}
+        </button>
+
         <div className="flex h-full flex-col overflow-hidden">
           {/* Logo */}
           <div className={cx(
@@ -412,24 +425,6 @@ export const DashboardSidebar = () => {
           <div className="border-t border-secondary px-3 py-4">
             {/* Upgrade Card */}
             <UpgradeCard isExpanded={isExpanded} />
-
-            {/* Collapse Button */}
-            <div className={cx(
-              "mt-4 flex items-center rounded-lg",
-              isExpanded ? "justify-end" : "justify-center"
-            )}>
-              <button
-                onClick={toggleSidebar}
-                className="flex size-8 items-center justify-center rounded-md text-fg-quaternary transition-colors hover:bg-secondary hover:text-fg-secondary"
-                aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
-              >
-                {isExpanded ? (
-                  <Iconsax.SidebarLeft size={20} variant="Outline" />
-                ) : (
-                  <Iconsax.SidebarRight size={20} variant="Outline" />
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </motion.aside>

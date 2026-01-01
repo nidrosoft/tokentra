@@ -2,39 +2,140 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
-import type { UsageRecord, UsageSummary, UsageTrend, TokenUsageByModel, DateRangeParams, FilterParams } from "@/types";
 
-export function useUsage(params?: DateRangeParams & FilterParams) {
+export interface UsageSummary {
+  totalRequests: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCachedTokens: number;
+  totalCost: number;
+  avgLatency: number;
+  successRate: number;
+  errorCount: number;
+}
+
+export interface UsageTrend {
+  date: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+}
+
+export interface TokenBreakdown {
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  cacheCreationTokens: number;
+}
+
+export interface ModelUsage {
+  model: string;
+  provider: string;
+  requests: number;
+  tokens: number;
+  cost: number;
+  percentage: number;
+}
+
+export interface UsageRecord {
+  id: string;
+  timestamp: string;
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  cost: number;
+  latencyMs: number;
+  status: string;
+  featureTag?: string;
+}
+
+export interface UsageDataResponse {
+  summary: UsageSummary;
+  trends: UsageTrend[];
+  tokenBreakdown: TokenBreakdown;
+  modelDistribution: ModelUsage[];
+  records: UsageRecord[];
+}
+
+export interface UsageFilters {
+  dateRange?: string;
+  provider?: string;
+  model?: string;
+  team?: string;
+  granularity?: string;
+}
+
+export function useUsageData(filters?: UsageFilters) {
   return useQuery({
-    queryKey: ["usage", params],
-    queryFn: () => apiClient.get<UsageRecord[]>("/usage", { params: params as Record<string, string> }),
+    queryKey: ["usage", "all", filters],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (filters?.dateRange) params.dateRange = filters.dateRange;
+      if (filters?.provider && filters.provider !== "all") params.provider = filters.provider;
+      if (filters?.model && filters.model !== "all") params.model = filters.model;
+      if (filters?.team && filters.team !== "all") params.team = filters.team;
+      if (filters?.granularity) params.granularity = filters.granularity;
+
+      const response = await apiClient.get<{ success: boolean; data: UsageDataResponse }>("/usage", { params });
+      return response.data;
+    },
   });
 }
 
-export function useUsageSummary(params?: DateRangeParams & FilterParams) {
+export function useUsageSummary(filters?: UsageFilters) {
   return useQuery({
-    queryKey: ["usage", "summary", params],
-    queryFn: () => apiClient.get<UsageSummary>("/usage", { params: params as Record<string, string> }),
+    queryKey: ["usage", "summary", filters],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (filters?.dateRange) params.dateRange = filters.dateRange;
+      if (filters?.provider && filters.provider !== "all") params.provider = filters.provider;
+
+      const response = await apiClient.get<{ success: boolean; data: UsageDataResponse }>("/usage", { params });
+      return response.data?.summary;
+    },
   });
 }
 
-export function useTokenUsage(params?: DateRangeParams & FilterParams) {
+export function useTokenUsage(filters?: UsageFilters) {
   return useQuery({
-    queryKey: ["usage", "tokens", params],
-    queryFn: () => apiClient.get<TokenUsageByModel[]>("/usage/tokens", { params: params as Record<string, string> }),
+    queryKey: ["usage", "tokens", filters],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (filters?.dateRange) params.dateRange = filters.dateRange;
+
+      const response = await apiClient.get<{ success: boolean; data: TokenBreakdown }>("/usage/tokens", { params });
+      return response.data;
+    },
   });
 }
 
-export function useUsageTrends(params?: DateRangeParams & FilterParams & { granularity?: string }) {
+export function useUsageTrends(filters?: UsageFilters) {
   return useQuery({
-    queryKey: ["usage", "trends", params],
-    queryFn: () => apiClient.get<UsageTrend[]>("/usage/requests", { params: params as Record<string, string> }),
+    queryKey: ["usage", "trends", filters],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (filters?.dateRange) params.dateRange = filters.dateRange;
+      if (filters?.granularity) params.granularity = filters.granularity;
+
+      const response = await apiClient.get<{ success: boolean; data: UsageTrend[] }>("/usage/requests", { params });
+      return response.data;
+    },
   });
 }
 
-export function useModelUsage(params?: DateRangeParams & FilterParams) {
+export function useModelUsage(filters?: UsageFilters) {
   return useQuery({
-    queryKey: ["usage", "models", params],
-    queryFn: () => apiClient.get("/usage/models", { params: params as Record<string, string> }),
+    queryKey: ["usage", "models", filters],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (filters?.dateRange) params.dateRange = filters.dateRange;
+      if (filters?.provider && filters.provider !== "all") params.provider = filters.provider;
+
+      const response = await apiClient.get<{ success: boolean; data: ModelUsage[] }>("/usage/models", { params });
+      return response.data;
+    },
   });
 }

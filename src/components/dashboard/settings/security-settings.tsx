@@ -1,12 +1,13 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { ShieldTick, Lock, Mobile, Logout } from "iconsax-react";
+import { useState, useEffect } from "react";
+import { ShieldTick, Lock, Mobile } from "iconsax-react";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Toggle } from "@/components/base/toggle/toggle";
 import { Badge } from "@/components/base/badges/badges";
+import { useOrganizationSettings } from "@/hooks/use-settings";
 import { cx } from "@/utils/cx";
 
 export interface SecuritySettingsProps {
@@ -20,18 +21,50 @@ const mockSessions = [
 ];
 
 export const SecuritySettings: FC<SecuritySettingsProps> = ({ className }) => {
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+  const { settings, isLoading, updateSettings, isUpdating } = useOrganizationSettings();
+  
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [sessions, setSessions] = useState(mockSessions);
-  const [isSaving, setIsSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  // Sync with org settings
+  useEffect(() => {
+    if (settings) {
+      setTwoFactorEnabled(settings.require2FA);
+    }
+  }, [settings]);
+
+  const handleToggle2FA = async (enabled: boolean) => {
+    setTwoFactorEnabled(enabled);
+    try {
+      await updateSettings({ require2FA: enabled });
+    } catch (error) {
+      console.error("Failed to update 2FA setting:", error);
+      setTwoFactorEnabled(!enabled); // Revert on error
+    }
+  };
 
   const handleRevokeSession = (id: string) => {
     setSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 1000);
+  const handlePasswordChange = () => {
+    setPasswordSaving(true);
+    setTimeout(() => setPasswordSaving(false), 1000);
   };
+
+  if (isLoading) {
+    return (
+      <div className={cx("space-y-6", className)}>
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 w-32 rounded bg-secondary" />
+          <div className="h-4 w-64 rounded bg-secondary" />
+          <div className="h-24 w-full rounded-xl bg-secondary" />
+          <div className="h-24 w-full rounded-xl bg-secondary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cx("space-y-6", className)}>
@@ -51,8 +84,8 @@ export const SecuritySettings: FC<SecuritySettingsProps> = ({ className }) => {
           <Input label="Current Password" type="password" placeholder="Enter current password" />
           <Input label="New Password" type="password" placeholder="Enter new password" />
           <Input label="Confirm New Password" type="password" placeholder="Confirm new password" />
-          <Button size="md" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Updating..." : "Update Password"}
+          <Button size="md" onClick={handlePasswordChange} disabled={passwordSaving}>
+            {passwordSaving ? "Updating..." : "Update Password"}
           </Button>
         </div>
       </div>
@@ -74,8 +107,9 @@ export const SecuritySettings: FC<SecuritySettingsProps> = ({ className }) => {
           </div>
           <Toggle
             isSelected={twoFactorEnabled}
-            onChange={(enabled) => setTwoFactorEnabled(enabled)}
+            onChange={handleToggle2FA}
             size="md"
+            isDisabled={isUpdating}
           />
         </div>
       </div>

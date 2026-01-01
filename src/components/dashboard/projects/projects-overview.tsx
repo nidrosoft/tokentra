@@ -1,17 +1,24 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { Add, Folder2, TickCircle, Wallet, Chart } from "iconsax-react";
+import { useState, useMemo } from "react";
+import { Add, Folder2 } from "iconsax-react";
 import type { Project } from "@/types";
 import { Button } from "@/components/base/buttons/button";
+import { MetricsChart04 } from "@/components/application/metrics/metrics";
 import { ProjectList } from "./project-list";
 import { CreateProjectDialog } from "./create-project-dialog";
 import type { ProjectFormData } from "./project-form";
-import { mockProjects, mockProjectsSummary, teamNameMap } from "@/data/mock-projects";
+import { useProjects, useCreateProject } from "@/hooks/use-projects";
+import type { ProjectSummary } from "@/lib/organization/types";
+import { EmptyState } from "../shared/empty-state";
 
 const AddIcon = ({ className }: { className?: string }) => (
   <Add size={20} color="currentColor" className={className} variant="Outline" />
+);
+
+const ProjectIcon = () => (
+  <Folder2 size={32} color="#7F56D9" variant="Bulk" />
 );
 
 const formatCurrency = (amount: number): string => {
@@ -23,33 +30,70 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export const ProjectsOverview: FC = () => {
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+// Convert API ProjectSummary to legacy Project type for UI compatibility
+function convertToLegacyProject(project: ProjectSummary): Project {
+  return {
+    id: project.id,
+    organizationId: project.orgId,
+    name: project.name,
+    description: project.description,
+    teamId: project.ownerTeamId,
+    tags: project.tags || [],
+    apiKeyPatterns: [],
+    monthlyBudget: project.monthlySpend || 0,
+    currentMonthSpend: project.monthlySpend || 0,
+    status: project.status as "active" | "archived",
+    createdAt: new Date(project.createdAt),
+    updatedAt: new Date(project.updatedAt),
+  };
+}
 
-  const handleCreateSubmit = (data: ProjectFormData) => {
-    setIsCreating(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newProject: Project = {
-        id: `project_${Date.now()}`,
-        organizationId: "org_1",
+export const ProjectsOverview: FC = () => {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  // Fetch projects from API
+  const { data: projectsData, isLoading: isLoadingProjects } = useProjects();
+  const createProjectMutation = useCreateProject();
+
+  // Convert API response to legacy format
+  const projects: Project[] = useMemo(() => {
+    if (projectsData && projectsData.length > 0) {
+      return projectsData.map(convertToLegacyProject);
+    }
+    return [];
+  }, [projectsData]);
+
+  const isEmpty = !isLoadingProjects && projects.length === 0;
+
+  // Build team name map from project data
+  const teamNameMap: Record<string, string> = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (projectsData) {
+      projectsData.forEach((p) => {
+        if (p.ownerTeamId && p.ownerTeamName) {
+          map[p.ownerTeamId] = p.ownerTeamName;
+        }
+      });
+    }
+    return map;
+  }, [projectsData]);
+
+  const handleCreateSubmit = async (data: ProjectFormData) => {
+    try {
+      await createProjectMutation.mutateAsync({
         name: data.name,
         description: data.description,
-        teamId: data.teamId || undefined,
+        ownerTeamId: data.teamId || undefined,
         tags: data.tags,
-        apiKeyPatterns: data.apiKeyPatterns,
-        monthlyBudget: data.monthlyBudget,
-        currentMonthSpend: 0,
-        status: data.status,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setProjects((prev) => [newProject, ...prev]);
-      setIsCreating(false);
+        category: "product",
+        settings: {
+          budgetAlertThreshold: data.monthlyBudget,
+        },
+      });
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
   };
 
   const handleView = (id: string) => {
@@ -85,66 +129,68 @@ export const ProjectsOverview: FC = () => {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand-secondary">
-              <Folder2 size={20} color="#7F56D9" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Projects</p>
-              <p className="text-2xl font-semibold text-primary">{projects.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-success-secondary">
-              <TickCircle size={20} color="#17B26A" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Active Projects</p>
-              <p className="text-2xl font-semibold text-primary">{activeProjects}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-warning-secondary">
-              <Wallet size={20} color="#F79009" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Spend</p>
-              <p className="text-2xl font-semibold text-primary">{formatCurrency(totalSpend)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand-secondary">
-              <Chart size={20} color="#7F56D9" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Avg per Project</p>
-              <p className="text-2xl font-semibold text-primary">{formatCurrency(avgSpend)}</p>
-            </div>
-          </div>
-        </div>
+        <MetricsChart04
+          title={String(projects.length)}
+          subtitle="Total Projects"
+          change="+3"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 5 }, { value: 7 }, { value: 8 }, { value: 10 }, { value: 11 }, { value: 12 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={String(activeProjects)}
+          subtitle="Active Projects"
+          change="+2"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 4 }, { value: 5 }, { value: 6 }, { value: 7 }, { value: 8 }, { value: 9 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(totalSpend)}
+          subtitle="Total Spend"
+          change="+11.2%"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 10 }, { value: 12 }, { value: 15 }, { value: 18 }, { value: 20 }, { value: 22 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(avgSpend)}
+          subtitle="Avg per Project"
+          change="-1.8%"
+          changeTrend="negative"
+          chartColor="text-fg-error-secondary"
+          chartData={[{ value: 12 }, { value: 11 }, { value: 10 }, { value: 9 }, { value: 8 }, { value: 7 }]}
+          actions={false}
+        />
       </div>
 
-      {/* Projects List */}
-      <ProjectList
-        projects={projects}
-        teamNameMap={teamNameMap}
-        onView={handleView}
-        onEdit={handleEdit}
-      />
+      {/* Projects List or Empty State */}
+      {isEmpty ? (
+        <EmptyState
+          icon={<ProjectIcon />}
+          title="No projects yet"
+          description="Create your first project to track AI spending by initiative, product, or experiment."
+          actionLabel="Create Project"
+          onAction={() => setIsCreateDialogOpen(true)}
+        />
+      ) : (
+        <ProjectList
+          projects={projects}
+          teamNameMap={teamNameMap}
+          onView={handleView}
+          onEdit={handleEdit}
+        />
+      )}
 
       {/* Create Project Dialog */}
       <CreateProjectDialog
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         onSubmit={handleCreateSubmit}
-        isLoading={isCreating}
+        isLoading={createProjectMutation.isPending}
       />
     </div>
   );

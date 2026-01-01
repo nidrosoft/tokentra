@@ -1,10 +1,13 @@
 "use client";
 
 import type { FC } from "react";
+import { useState } from "react";
 import { People, Wallet, Edit2, Eye } from "iconsax-react";
 import type { Team } from "@/types";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { TeamViewSlideout } from "./team-view-slideout";
+import { TeamEditSlideout } from "./team-edit-slideout";
 import { cx } from "@/utils/cx";
 
 export interface TeamCardProps {
@@ -37,6 +40,9 @@ export const TeamCard: FC<TeamCardProps> = ({
   onEdit,
   className,
 }) => {
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   const budgetUsage = team.monthlyBudget
     ? (team.currentMonthSpend / team.monthlyBudget) * 100
     : 0;
@@ -47,9 +53,20 @@ export const TeamCard: FC<TeamCardProps> = ({
     return { color: "success" as const, label: "On Track" };
   };
 
+  const handleView = () => {
+    setIsViewOpen(true);
+    onView?.(team.id);
+  };
+
+  const handleEdit = () => {
+    setIsEditOpen(true);
+    onEdit?.(team.id);
+  };
+
   const status = getBudgetStatus();
 
   return (
+    <>
     <div
       className={cx(
         "flex flex-col rounded-xl border border-secondary bg-primary p-5 shadow-xs transition-shadow hover:shadow-md",
@@ -119,7 +136,7 @@ export const TeamCard: FC<TeamCardProps> = ({
           size="sm"
           color="secondary"
           iconLeading={ViewIcon}
-          onClick={() => onView?.(team.id)}
+          onClick={handleView}
           className="flex-1"
         >
           View
@@ -128,11 +145,36 @@ export const TeamCard: FC<TeamCardProps> = ({
           size="sm"
           color="tertiary"
           iconLeading={EditIcon}
-          onClick={() => onEdit?.(team.id)}
+          onClick={handleEdit}
         >
           Edit
         </Button>
       </div>
     </div>
+
+    {/* View Slideout */}
+    <TeamViewSlideout
+      isOpen={isViewOpen}
+      onOpenChange={setIsViewOpen}
+      team={team}
+      onEdit={() => {
+        setIsViewOpen(false);
+        setIsEditOpen(true);
+      }}
+    />
+
+    {/* Edit Slideout */}
+    <TeamEditSlideout
+      isOpen={isEditOpen}
+      onOpenChange={setIsEditOpen}
+      team={team}
+      onSave={(teamId, updates) => {
+        console.log("Saving team:", teamId, updates);
+      }}
+      onDelete={(teamId) => {
+        console.log("Deleting team:", teamId);
+      }}
+    />
+    </>
   );
 };

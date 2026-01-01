@@ -2,65 +2,59 @@
 
 import type { FC } from "react";
 import { useState } from "react";
-import { Add, Copy, Trash, Key, TickCircle } from "iconsax-react";
+import { Add, Copy, Key, TickCircle } from "iconsax-react";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
-import { Badge } from "@/components/base/badges/badges";
+import { useApiKeys } from "@/hooks/use-api-keys";
 import { cx } from "@/utils/cx";
 
 export interface ApiKeyListProps {
   className?: string;
 }
 
-interface ApiKey {
-  id: string;
-  name: string;
-  prefix: string;
-  createdAt: Date;
-  lastUsed?: Date;
-}
-
-const mockApiKeys: ApiKey[] = [
-  { id: "key_1", name: "Production SDK", prefix: "tk_live_abc123", createdAt: new Date("2024-01-15"), lastUsed: new Date("2024-03-20") },
-  { id: "key_2", name: "Development", prefix: "tk_test_xyz789", createdAt: new Date("2024-02-01"), lastUsed: new Date("2024-03-19") },
-  { id: "key_3", name: "CI/CD Pipeline", prefix: "tk_live_def456", createdAt: new Date("2024-03-01") },
-];
-
 const AddIcon = ({ className }: { className?: string }) => (
   <Add size={20} color="currentColor" className={className} variant="Outline" />
 );
 
-const formatDate = (date: Date): string => {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+const formatDate = (dateStr: string): string => {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateStr));
 };
 
 export const ApiKeyList: FC<ApiKeyListProps> = ({ className }) => {
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>(mockApiKeys);
+  const { apiKeys, isLoading, createApiKey, isCreating: isCreatingKey, revokeApiKey, isRevoking } = useApiKeys();
   const [isCreating, setIsCreating] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [newSecretKey, setNewSecretKey] = useState<string | null>(null);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newKeyName.trim()) return;
-    const newKey: ApiKey = {
-      id: `key_${Date.now()}`,
-      name: newKeyName,
-      prefix: `tk_live_${Math.random().toString(36).substring(2, 8)}`,
-      createdAt: new Date(),
-    };
-    setApiKeys((prev) => [newKey, ...prev]);
-    setNewKeyName("");
-    setIsCreating(false);
+    try {
+      const result = await createApiKey({ name: newKeyName });
+      setNewSecretKey(result.secretKey);
+      setNewKeyName("");
+    } catch (error) {
+      console.error("Failed to create API key:", error);
+    }
   };
 
-  const handleRevoke = (id: string) => {
-    setApiKeys((prev) => prev.filter((k) => k.id !== id));
+  const handleRevoke = async (id: string) => {
+    try {
+      await revokeApiKey(id);
+    } catch (error) {
+      console.error("Failed to revoke API key:", error);
+    }
   };
 
-  const handleCopy = (prefix: string, id: string) => {
-    navigator.clipboard.writeText(prefix);
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleCloseSecretKey = () => {
+    setNewSecretKey(null);
+    setIsCreating(false);
   };
 
   return (
@@ -76,8 +70,31 @@ export const ApiKeyList: FC<ApiKeyListProps> = ({ className }) => {
         </Button>
       </div>
 
+      {/* New Secret Key Display */}
+      {newSecretKey && (
+        <div className="rounded-lg border border-success-primary bg-success-secondary/20 p-4">
+          <p className="mb-2 text-sm font-medium text-primary">🔑 Your new API key (copy it now - it won't be shown again!)</p>
+          <div className="flex items-center gap-3">
+            <code className="flex-1 rounded bg-secondary p-2 text-sm text-primary break-all">{newSecretKey}</code>
+            <button
+              onClick={() => handleCopy(newSecretKey, "new-key")}
+              className="rounded-lg bg-primary p-2 text-tertiary hover:text-primary"
+            >
+              {copiedId === "new-key" ? (
+                <TickCircle size={20} color="#17B26A" variant="Bold" />
+              ) : (
+                <Copy size={20} color="currentColor" variant="Outline" />
+              )}
+            </button>
+          </div>
+          <Button size="sm" color="secondary" className="mt-3" onClick={handleCloseSecretKey}>
+            Done
+          </Button>
+        </div>
+      )}
+
       {/* Create New Key Form */}
-      {isCreating && (
+      {isCreating && !newSecretKey && (
         <div className="rounded-lg border border-brand-primary bg-brand-secondary/20 p-4">
           <p className="mb-3 text-sm font-medium text-primary">Create New API Key</p>
           <div className="flex gap-3">
@@ -87,9 +104,28 @@ export const ApiKeyList: FC<ApiKeyListProps> = ({ className }) => {
               onChange={(value) => setNewKeyName(value)}
               className="flex-1"
             />
-            <Button size="md" onClick={handleCreate}>Create</Button>
+            <Button size="md" onClick={handleCreate} disabled={isCreatingKey}>
+              {isCreatingKey ? "Creating..." : "Create"}
+            </Button>
             <Button size="md" color="secondary" onClick={() => setIsCreating(false)}>Cancel</Button>
           </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse rounded-lg border border-secondary bg-primary p-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-lg bg-secondary" />
+                <div className="space-y-2">
+                  <div className="h-4 w-32 rounded bg-secondary" />
+                  <div className="h-3 w-24 rounded bg-secondary" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -107,9 +143,9 @@ export const ApiKeyList: FC<ApiKeyListProps> = ({ className }) => {
               <div>
                 <p className="font-medium text-primary">{key.name}</p>
                 <div className="flex items-center gap-2">
-                  <code className="text-xs text-tertiary">{key.prefix}...</code>
+                  <code className="text-xs text-tertiary">{key.keyPrefix}...</code>
                   <button
-                    onClick={() => handleCopy(key.prefix, key.id)}
+                    onClick={() => handleCopy(key.keyPrefix, key.id)}
                     className="text-tertiary hover:text-primary"
                   >
                     {copiedId === key.id ? (
@@ -124,7 +160,7 @@ export const ApiKeyList: FC<ApiKeyListProps> = ({ className }) => {
             <div className="flex items-center gap-4">
               <div className="text-xs text-tertiary">
                 <span>Created {formatDate(key.createdAt)}</span>
-                {key.lastUsed && <span className="ml-3">Last used {formatDate(key.lastUsed)}</span>}
+                {key.lastUsedAt && <span className="ml-3">Last used {formatDate(key.lastUsedAt)}</span>}
               </div>
               <Button
                 size="sm"

@@ -1,6 +1,7 @@
 "use client";
 
 import type { FC } from "react";
+import { useState } from "react";
 import {
   DollarCircle,
   TrendUp,
@@ -11,9 +12,12 @@ import {
   Sms,
   Notification,
   Code1,
+  Setting2,
 } from "iconsax-react";
 import type { Alert, AlertType, AlertChannelType } from "@/types";
 import { Badge } from "@/components/base/badges/badges";
+import { Button } from "@/components/base/buttons/button";
+import { AlertEditSlideout } from "./alert-edit-slideout";
 import { cx } from "@/utils/cx";
 
 export interface AlertCardProps {
@@ -52,11 +56,23 @@ const operatorLabels: Record<string, string> = {
 };
 
 const formatCondition = (alert: Alert): string => {
-  const op = operatorLabels[alert.condition.operator] || alert.condition.operator;
-  const metric = alert.condition.metric.replace(/_/g, " ");
-  const timeWindow = alert.condition.timeWindow ? ` in ${alert.condition.timeWindow}` : "";
-  return `When ${metric} ${op} ${alert.condition.value}${timeWindow}`;
+  // Handle both legacy 'condition' format and new 'config' format
+  const condition = alert.condition || (alert as unknown as { config?: typeof alert.condition }).config;
+  
+  if (!condition) {
+    return "No condition configured";
+  }
+  
+  const op = operatorLabels[condition.operator] || condition.operator || ">";
+  const metric = (condition.metric || "cost").replace(/_/g, " ");
+  const value = condition.value ?? condition.threshold ?? 0;
+  const timeWindow = condition.timeWindow ? ` in ${condition.timeWindow}` : "";
+  return `When ${metric} ${op} ${value}${timeWindow}`;
 };
+
+const SettingsIcon = ({ className }: { className?: string }) => (
+  <Setting2 size={16} color="currentColor" className={className} variant="Outline" />
+);
 
 export const AlertCard: FC<AlertCardProps> = ({
   alert,
@@ -64,10 +80,18 @@ export const AlertCard: FC<AlertCardProps> = ({
   onEdit,
   className,
 }) => {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  
   const config = typeConfig[alert.type];
   const Icon = config.icon;
 
+  const handleEdit = () => {
+    setIsEditOpen(true);
+    onEdit?.(alert.id);
+  };
+
   return (
+    <>
     <div
       className={cx(
         "rounded-xl border bg-primary p-5 shadow-xs transition-shadow hover:shadow-md",
@@ -113,7 +137,7 @@ export const AlertCard: FC<AlertCardProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-xs text-tertiary">Channels:</span>
           <div className="flex gap-1.5">
-            {alert.channels.map((channel, idx) => {
+            {(alert.channels || []).map((channel, idx) => {
               const ChannelIcon = channelIcons[channel.type];
               return (
                 <div
@@ -127,13 +151,29 @@ export const AlertCard: FC<AlertCardProps> = ({
             })}
           </div>
         </div>
-        <button
-          onClick={() => onEdit?.(alert.id)}
-          className="text-sm font-medium text-brand-primary hover:text-brand-secondary"
+        <Button
+          size="sm"
+          color="secondary"
+          iconLeading={SettingsIcon}
+          onClick={handleEdit}
         >
           Edit
-        </button>
+        </Button>
       </div>
     </div>
+
+    {/* Edit Slideout */}
+    <AlertEditSlideout
+      isOpen={isEditOpen}
+      onOpenChange={setIsEditOpen}
+      alert={alert}
+      onSave={(alertId, updates) => {
+        console.log("Saving alert:", alertId, updates);
+      }}
+      onDelete={(alertId) => {
+        console.log("Deleting alert:", alertId);
+      }}
+    />
+    </>
   );
 };

@@ -1,4 +1,5 @@
-import type { Provider, ProviderType } from "@/types";
+import type { Provider } from "@/types";
+import type { ProviderType } from "@/lib/provider-sync/types";
 
 export interface ProviderWithStats extends Provider {
   totalSpend: number;
@@ -103,9 +104,14 @@ export const mockProviders: ProviderWithStats[] = [
 ];
 
 export const availableProviders: { type: ProviderType; name: string; description: string }[] = [
-  { type: "openai", name: "OpenAI", description: "GPT-4o, GPT-4, DALL-E, Whisper" },
-  { type: "anthropic", name: "Anthropic", description: "Claude 3.5, Claude 3 Opus/Sonnet/Haiku" },
-  { type: "google", name: "Google AI", description: "Gemini 1.5 Pro, Gemini 1.5 Flash" },
+  { type: "openai", name: "OpenAI", description: "GPT-5, GPT-4o, o3, DALL-E 4, Whisper" },
+  { type: "anthropic", name: "Anthropic", description: "Claude 4.5 Opus/Sonnet/Haiku" },
+  { type: "google", name: "Google AI", description: "Gemini 2.5 Pro, Gemini 2.5 Flash" },
   { type: "azure", name: "Azure OpenAI", description: "Enterprise OpenAI models on Azure" },
-  { type: "aws", name: "AWS Bedrock", description: "Claude, Titan, Llama on AWS" },
+  { type: "aws", name: "AWS Bedrock", description: "Claude, Titan, Llama, Nova on AWS" },
+  { type: "xai", name: "xAI (Grok)", description: "Grok-2, Grok-2 Mini, Grok Vision" },
+  { type: "deepseek", name: "DeepSeek", description: "DeepSeek-V3, DeepSeek-R1, DeepSeek-Coder" },
+  { type: "mistral", name: "Mistral AI", description: "Mistral Large, Mixtral, Codestral" },
+  { type: "cohere", name: "Cohere", description: "Command R+, Command R, Embed, Rerank" },
+  { type: "groq", name: "Groq", description: "Llama 3.3, Mixtral, Gemma - Ultra-fast" },
 ];

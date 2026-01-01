@@ -1,14 +1,16 @@
 "use client";
 
 import type { FC } from "react";
-import type { ProviderWithStats } from "@/data/mock-providers";
+import type { ProviderConnection } from "@/hooks/use-providers";
 import { ProviderCard } from "./provider-card";
 import { cx } from "@/utils/cx";
 
 export interface ProviderListProps {
-  providers: ProviderWithStats[];
+  providers: ProviderConnection[];
   onSync?: (providerId: string) => void;
   onSettings?: (providerId: string) => void;
+  syncingProviders?: Set<string>;
+  isLoading?: boolean;
   className?: string;
 }
 
@@ -16,10 +18,24 @@ export const ProviderList: FC<ProviderListProps> = ({
   providers,
   onSync,
   onSettings,
+  syncingProviders,
+  isLoading,
   className,
 }) => {
   const connectedProviders = providers.filter((p) => p.status === "connected");
   const otherProviders = providers.filter((p) => p.status !== "connected");
+
+  if (isLoading) {
+    return (
+      <div className={cx("space-y-6", className)}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-64 animate-pulse rounded-xl bg-secondary" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cx("space-y-6", className)}>
@@ -36,6 +52,7 @@ export const ProviderList: FC<ProviderListProps> = ({
                 provider={provider}
                 onSync={onSync}
                 onSettings={onSettings}
+                isSyncingExternal={syncingProviders?.has(provider.id)}
               />
             ))}
           </div>
@@ -55,6 +72,7 @@ export const ProviderList: FC<ProviderListProps> = ({
                 provider={provider}
                 onSync={onSync}
                 onSettings={onSettings}
+                isSyncingExternal={syncingProviders?.has(provider.id)}
               />
             ))}
           </div>

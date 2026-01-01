@@ -1,14 +1,15 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { SearchNormal1, TickCircle, Add, More } from "iconsax-react";
+import { useState, useEffect } from "react";
+import { SearchNormal1, TickCircle, Add, More, CloseCircle } from "iconsax-react";
 import { Input } from "@/components/base/input/input";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
+import { useIntegrations, type Integration } from "@/hooks/use-integrations";
 import { cx } from "@/utils/cx";
 
-interface Integration {
+interface IntegrationUI {
   id: string;
   name: string;
   provider: string;
@@ -17,6 +18,7 @@ interface Integration {
   category: "notifications" | "analytics" | "billing" | "collaboration";
   connected: boolean;
   configuredAt?: Date;
+  dbId?: string;
 }
 
 const SlackIcon: FC<{ size: number; className?: string }> = ({ size, className }) => (
@@ -70,71 +72,59 @@ const DatadogIcon: FC<{ size: number; className?: string }> = ({ size, className
   </svg>
 );
 
-const mockIntegrations: Integration[] = [
+const defaultIntegrations: IntegrationUI[] = [
   {
     id: "slack",
     name: "Slack",
-    provider: "SLACK",
-    description: "Send alerts and notifications to Slack channels",
+    provider: "Slack Technologies",
+    description: "Real-time budget alerts, cost spike notifications, and daily summaries to your Slack channels",
     icon: SlackIcon,
     category: "notifications",
-    connected: true,
-    configuredAt: new Date("2024-02-15"),
+    connected: false,
+  },
+  {
+    id: "teams",
+    name: "Microsoft Teams",
+    provider: "Microsoft",
+    description: "Send cost alerts and budget notifications to Microsoft Teams channels",
+    icon: MSTeamsIcon,
+    category: "notifications",
+    connected: false,
   },
   {
     id: "pagerduty",
     name: "PagerDuty",
-    provider: "PAGERDUTY",
-    description: "Trigger incidents for critical cost alerts",
+    provider: "PagerDuty",
+    description: "Escalate critical budget breaches and cost anomalies to on-call teams",
     icon: PagerDutyIcon,
     category: "notifications",
-    connected: true,
-    configuredAt: new Date("2024-03-01"),
-  },
-  {
-    id: "email",
-    name: "Email (SMTP)",
-    provider: "EMAIL",
-    description: "Send email notifications via custom SMTP server",
-    icon: EmailIcon,
-    category: "notifications",
-    connected: true,
-    configuredAt: new Date("2024-01-10"),
-  },
-  {
-    id: "webhook",
-    name: "Webhooks",
-    provider: "WEBHOOK",
-    description: "Send alerts to custom webhook endpoints",
-    icon: WebhookIcon,
-    category: "notifications",
-    connected: false,
-  },
-  {
-    id: "ms-teams",
-    name: "Microsoft Teams",
-    provider: "MICROSOFT",
-    description: "Send notifications to Microsoft Teams channels",
-    icon: MSTeamsIcon,
-    category: "collaboration",
-    connected: false,
-  },
-  {
-    id: "jira",
-    name: "Jira",
-    provider: "ATLASSIAN",
-    description: "Create Jira tickets from cost alerts",
-    icon: JiraIcon,
-    category: "collaboration",
     connected: false,
   },
   {
     id: "datadog",
     name: "Datadog",
-    provider: "DATADOG",
-    description: "Export cost metrics to Datadog dashboards",
+    provider: "Datadog",
+    description: "Export AI cost metrics and events to your Datadog dashboards for unified observability",
     icon: DatadogIcon,
     category: "analytics",
+    connected: false,
+  },
+  {
+    id: "jira",
+    name: "Jira",
+    provider: "Atlassian",
+    description: "Auto-create Jira tickets when budgets are exceeded or cost anomalies are detected",
+    icon: JiraIcon,
+    category: "collaboration",
+    connected: false,
+  },
+  {
+    id: "webhook",
+    name: "Webhooks",
+    provider: "Custom",
+    description: "Send cost events to any custom endpoint with HMAC signature verification",
+    icon: WebhookIcon,
+    category: "notifications",
     connected: false,
   },
 ];
@@ -149,7 +139,35 @@ const AddIcon = ({ className }: { className?: string }) => (
 
 export const IntegrationSettings: FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
+  const [integrations, setIntegrations] = useState<IntegrationUI[]>(defaultIntegrations);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch connected integrations from database
+  const { integrations: dbIntegrations, createIntegration, deleteIntegration, isLoading } = useIntegrations();
+
+  // Merge database integrations with default list
+  useEffect(() => {
+    if (dbIntegrations.length > 0) {
+      setIntegrations((prev) =>
+        prev.map((integration) => {
+          const dbMatch = dbIntegrations.find(
+            (db) => db.integrationType === integration.id
+          );
+          if (dbMatch) {
+            return {
+              ...integration,
+              connected: true,
+              configuredAt: new Date(dbMatch.connectedAt || dbMatch.updatedAt),
+              dbId: dbMatch.id,
+            };
+          }
+          return { ...integration, connected: false, dbId: undefined };
+        })
+      );
+    }
+  }, [dbIntegrations]);
 
   const connectedIntegrations = integrations.filter((i) => i.connected);
   const availableIntegrations = integrations.filter((i) => !i.connected);
@@ -164,16 +182,53 @@ export const IntegrationSettings: FC = () => {
            i.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleConnect = (id: string) => {
-    setIntegrations((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, connected: true, configuredAt: new Date() } : i))
-    );
+  const handleOpenConnect = (id: string) => {
+    setConnectingId(id);
+    setError(null);
   };
 
-  const handleDisconnect = (id: string) => {
-    setIntegrations((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, connected: false, configuredAt: undefined } : i))
-    );
+  const handleCloseConnect = () => {
+    setConnectingId(null);
+    setError(null);
+  };
+
+  const handleConnect = async (id: string, config: Record<string, string>) => {
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      const integration = integrations.find((i) => i.id === id);
+      if (!integration) throw new Error("Integration not found");
+      
+      await createIntegration({
+        integrationType: id,
+        name: integration.name,
+        config,
+      });
+      
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, connected: true, configuredAt: new Date() } : i))
+      );
+      setConnectingId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect integration");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDisconnect = async (id: string) => {
+    const integration = integrations.find((i) => i.id === id);
+    if (!integration?.dbId) return;
+    
+    try {
+      await deleteIntegration(integration.dbId);
+      setIntegrations((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, connected: false, configuredAt: undefined, dbId: undefined } : i))
+      );
+    } catch (err) {
+      console.error("Failed to disconnect:", err);
+    }
   };
 
   return (
@@ -218,7 +273,7 @@ export const IntegrationSettings: FC = () => {
               <IntegrationCard
                 key={integration.id}
                 integration={integration}
-                onConnect={() => handleConnect(integration.id)}
+                onConnect={() => handleOpenConnect(integration.id)}
               />
             ))}
           </div>
@@ -232,12 +287,23 @@ export const IntegrationSettings: FC = () => {
           <p className="mt-1 text-sm text-tertiary">Try adjusting your search</p>
         </div>
       )}
+
+      {/* Connection Dialog */}
+      {connectingId && (
+        <ConnectionDialog
+          integration={integrations.find((i) => i.id === connectingId)!}
+          onClose={handleCloseConnect}
+          onConnect={(config) => handleConnect(connectingId, config)}
+          isSubmitting={isSubmitting}
+          error={error}
+        />
+      )}
     </div>
   );
 };
 
 interface IntegrationCardProps {
-  integration: Integration;
+  integration: IntegrationUI;
   onConnect?: () => void;
   onDisconnect?: () => void;
 }
@@ -285,6 +351,303 @@ const IntegrationCard: FC<IntegrationCardProps> = ({ integration, onConnect, onD
             </Button>
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// CONNECTION DIALOG
+// ============================================================================
+
+interface ConnectionDialogProps {
+  integration: IntegrationUI;
+  onClose: () => void;
+  onConnect: (config: Record<string, string>) => void;
+  isSubmitting: boolean;
+  error: string | null;
+}
+
+const ConnectionDialog: FC<ConnectionDialogProps> = ({
+  integration,
+  onClose,
+  onConnect,
+  isSubmitting,
+  error,
+}) => {
+  const [formData, setFormData] = useState<Record<string, string>>({});
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onConnect(formData);
+  };
+
+  const updateField = (key: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Get form fields based on integration type
+  const getFormFields = () => {
+    switch (integration.id) {
+      case "slack":
+        return (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Webhook URL</label>
+              <Input
+                placeholder="https://hooks.slack.com/services/..."
+                value={formData.webhookUrl || ""}
+                onChange={(value) => updateField("webhookUrl", value)}
+                isRequired
+              />
+              <p className="text-xs text-tertiary">
+                Create an incoming webhook in your Slack workspace settings
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Channel (optional)</label>
+              <Input
+                placeholder="#alerts"
+                value={formData.channel || ""}
+                onChange={(value) => updateField("channel", value)}
+              />
+            </div>
+          </>
+        );
+
+      case "teams":
+        return (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-primary">Webhook URL</label>
+            <Input
+              placeholder="https://outlook.office.com/webhook/..."
+              value={formData.webhookUrl || ""}
+              onChange={(value) => updateField("webhookUrl", value)}
+              isRequired
+            />
+            <p className="text-xs text-tertiary">
+              Create an incoming webhook connector in your Teams channel
+            </p>
+          </div>
+        );
+
+      case "pagerduty":
+        return (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Integration Key</label>
+              <Input
+                placeholder="Enter your PagerDuty integration key"
+                value={formData.integrationKey || ""}
+                onChange={(value) => updateField("integrationKey", value)}
+                isRequired
+              />
+              <p className="text-xs text-tertiary">
+                Found in PagerDuty under Service → Integrations → Events API v2
+              </p>
+            </div>
+            <div className="flex items-center gap-2 mt-3">
+              <input
+                type="checkbox"
+                id="allSeverities"
+                checked={formData.allSeverities === "true"}
+                onChange={(e) => updateField("allSeverities", e.target.checked ? "true" : "false")}
+                className="rounded border-secondary"
+              />
+              <label htmlFor="allSeverities" className="text-sm text-secondary">
+                Send all alert severities (not just critical)
+              </label>
+            </div>
+          </>
+        );
+
+      case "datadog":
+        return (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">API Key</label>
+              <Input
+                type="password"
+                placeholder="Enter your Datadog API key"
+                value={formData.apiKey || ""}
+                onChange={(value) => updateField("apiKey", value)}
+                isRequired
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Site (optional)</label>
+              <select
+                value={formData.site || "datadoghq.com"}
+                onChange={(e) => updateField("site", e.target.value)}
+                className="w-full rounded-lg border border-secondary bg-primary px-3 py-2 text-sm"
+              >
+                <option value="datadoghq.com">US (datadoghq.com)</option>
+                <option value="datadoghq.eu">EU (datadoghq.eu)</option>
+                <option value="us3.datadoghq.com">US3 (us3.datadoghq.com)</option>
+                <option value="us5.datadoghq.com">US5 (us5.datadoghq.com)</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-2 mt-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="sendMetrics"
+                  checked={formData.sendMetrics !== "false"}
+                  onChange={(e) => updateField("sendMetrics", e.target.checked ? "true" : "false")}
+                  className="rounded border-secondary"
+                />
+                <label htmlFor="sendMetrics" className="text-sm text-secondary">
+                  Send cost metrics
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="sendEvents"
+                  checked={formData.sendEvents !== "false"}
+                  onChange={(e) => updateField("sendEvents", e.target.checked ? "true" : "false")}
+                  className="rounded border-secondary"
+                />
+                <label htmlFor="sendEvents" className="text-sm text-secondary">
+                  Send alert events
+                </label>
+              </div>
+            </div>
+          </>
+        );
+
+      case "jira":
+        return (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Jira URL</label>
+              <Input
+                placeholder="https://your-domain.atlassian.net"
+                value={formData.baseUrl || ""}
+                onChange={(value) => updateField("baseUrl", value)}
+                isRequired
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Email</label>
+              <Input
+                type="email"
+                placeholder="your-email@company.com"
+                value={formData.email || ""}
+                onChange={(value) => updateField("email", value)}
+                isRequired
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">API Token</label>
+              <Input
+                type="password"
+                placeholder="Enter your Jira API token"
+                value={formData.apiToken || ""}
+                onChange={(value) => updateField("apiToken", value)}
+                isRequired
+              />
+              <p className="text-xs text-tertiary">
+                Generate at id.atlassian.com/manage-profile/security/api-tokens
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Project Key</label>
+              <Input
+                placeholder="e.g., OPS, ENG, COST"
+                value={formData.projectKey || ""}
+                onChange={(value) => updateField("projectKey", value)}
+                isRequired
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Issue Type (optional)</label>
+              <Input
+                placeholder="Task"
+                value={formData.issueType || ""}
+                onChange={(value) => updateField("issueType", value)}
+              />
+            </div>
+          </>
+        );
+
+      case "webhook":
+        return (
+          <>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Webhook URL</label>
+              <Input
+                placeholder="https://api.example.com/webhook"
+                value={formData.url || ""}
+                onChange={(value) => updateField("url", value)}
+                isRequired
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-primary">Secret (optional)</label>
+              <Input
+                type="password"
+                placeholder="For HMAC signature verification"
+                value={formData.secret || ""}
+                onChange={(value) => updateField("secret", value)}
+              />
+              <p className="text-xs text-tertiary">
+                If provided, payloads will be signed with X-TokenTRA-Signature header
+              </p>
+            </div>
+          </>
+        );
+
+      default:
+        return <p className="text-sm text-tertiary">Configuration not available for this integration.</p>;
+    }
+  };
+
+  const Icon = integration.icon;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-xl border border-secondary bg-primary p-6 shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-secondary">
+              <Icon size={24} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-primary">Connect {integration.name}</h3>
+              <p className="text-xs text-tertiary">{integration.provider}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-tertiary hover:bg-secondary hover:text-secondary"
+          >
+            <CloseCircle size={20} color="currentColor" variant="Outline" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {getFormFields()}
+
+          {/* Error Message */}
+          {error && (
+            <div className="rounded-lg bg-error-secondary/10 p-3 text-sm text-error-primary">
+              {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" color="tertiary" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" color="primary" disabled={isSubmitting}>
+              {isSubmitting ? "Connecting..." : "Connect"}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );

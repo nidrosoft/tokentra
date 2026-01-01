@@ -13,6 +13,7 @@ import { cx } from "@/utils/cx";
 
 export interface BudgetFormData {
   name: string;
+  description?: string;
   amount: number;
   currency: string;
   period: BudgetPeriod;
@@ -75,6 +76,13 @@ const scopeTargetItems: Record<BudgetScopeType, SelectItemType[]> = {
     { id: "openai", label: "OpenAI" },
     { id: "anthropic", label: "Anthropic" },
     { id: "google", label: "Google AI" },
+    { id: "azure", label: "Azure OpenAI" },
+    { id: "aws", label: "AWS Bedrock" },
+    { id: "xai", label: "xAI (Grok)" },
+    { id: "deepseek", label: "DeepSeek" },
+    { id: "mistral", label: "Mistral AI" },
+    { id: "cohere", label: "Cohere" },
+    { id: "groq", label: "Groq" },
   ],
   model: [
     { id: "gpt-4o", label: "GPT-4o" },
@@ -92,6 +100,7 @@ export const BudgetForm: FC<BudgetFormProps> = ({
 }) => {
   const [formData, setFormData] = useState<BudgetFormData>({
     name: initialData?.name || "",
+    description: initialData?.description || "",
     amount: initialData?.amount || 1000,
     currency: initialData?.currency || "USD",
     period: initialData?.period || "monthly",
@@ -147,6 +156,14 @@ export const BudgetForm: FC<BudgetFormProps> = ({
           onChange={(value) => setFormData((prev) => ({ ...prev, name: value }))}
           isInvalid={!!errors.name}
           hint={errors.name}
+        />
+
+        {/* Description */}
+        <Input
+          label="Description (Optional)"
+          placeholder="Brief description of this budget's purpose"
+          value={formData.description || ""}
+          onChange={(value) => setFormData((prev) => ({ ...prev, description: value }))}
         />
 
         {/* Amount and Period */}

@@ -1,10 +1,13 @@
 "use client";
 
 import type { FC } from "react";
+import { useState } from "react";
 import { Folder2, Wallet, Edit2, Eye, People } from "iconsax-react";
 import type { Project } from "@/types";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { ProjectViewSlideout } from "./project-view-slideout";
+import { ProjectEditSlideout } from "./project-edit-slideout";
 import { cx } from "@/utils/cx";
 
 export interface ProjectCardProps {
@@ -39,6 +42,9 @@ export const ProjectCard: FC<ProjectCardProps> = ({
   onEdit,
   className,
 }) => {
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   const budgetUsage = project.monthlyBudget
     ? (project.currentMonthSpend / project.monthlyBudget) * 100
     : 0;
@@ -49,10 +55,21 @@ export const ProjectCard: FC<ProjectCardProps> = ({
     return { color: "success" as const, label: "On Track" };
   };
 
+  const handleView = () => {
+    setIsViewOpen(true);
+    onView?.(project.id);
+  };
+
+  const handleEdit = () => {
+    setIsEditOpen(true);
+    onEdit?.(project.id);
+  };
+
   const budgetStatus = getBudgetStatus();
   const isArchived = project.status === "archived";
 
   return (
+    <>
     <div
       className={cx(
         "flex flex-col rounded-xl border border-secondary bg-primary p-5 shadow-xs transition-shadow hover:shadow-md",
@@ -114,12 +131,12 @@ export const ProjectCard: FC<ProjectCardProps> = ({
               {formatCurrency(project.currentMonthSpend)} / {formatCurrency(project.monthlyBudget)}
             </span>
           </div>
-          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-secondary">
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-tertiary">
             <div
               className={cx(
                 "h-full rounded-full transition-all",
-                budgetUsage >= 100 ? "bg-error-primary" :
-                budgetUsage >= 80 ? "bg-warning-primary" : "bg-success-primary"
+                budgetUsage >= 100 ? "bg-error-solid" :
+                budgetUsage >= 80 ? "bg-warning-solid" : "bg-success-solid"
               )}
               style={{ width: `${Math.min(budgetUsage, 100)}%` }}
             />
@@ -133,7 +150,7 @@ export const ProjectCard: FC<ProjectCardProps> = ({
           size="sm"
           color="secondary"
           iconLeading={ViewIcon}
-          onClick={() => onView?.(project.id)}
+          onClick={handleView}
           className="flex-1"
         >
           View
@@ -142,11 +159,38 @@ export const ProjectCard: FC<ProjectCardProps> = ({
           size="sm"
           color="tertiary"
           iconLeading={EditIcon}
-          onClick={() => onEdit?.(project.id)}
+          onClick={handleEdit}
         >
           Edit
         </Button>
       </div>
     </div>
+
+    {/* View Slideout */}
+    <ProjectViewSlideout
+      isOpen={isViewOpen}
+      onOpenChange={setIsViewOpen}
+      project={project}
+      teamName={teamName}
+      onEdit={() => {
+        setIsViewOpen(false);
+        setIsEditOpen(true);
+      }}
+    />
+
+    {/* Edit Slideout */}
+    <ProjectEditSlideout
+      isOpen={isEditOpen}
+      onOpenChange={setIsEditOpen}
+      project={project}
+      teamName={teamName}
+      onSave={(projectId, updates) => {
+        console.log("Saving project:", projectId, updates);
+      }}
+      onDelete={(projectId) => {
+        console.log("Deleting project:", projectId);
+      }}
+    />
+    </>
   );
 };

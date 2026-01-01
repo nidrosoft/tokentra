@@ -1,8 +1,10 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { useNotifications } from "@/hooks/use-notifications";
+import { formatDistanceToNow } from "date-fns";
 import * as Iconsax from "iconsax-react";
 import {
   Button as AriaButton,
@@ -32,78 +34,60 @@ const pageTitles: Record<string, string> = {
   "/dashboard/support": "Support",
 };
 
-// Mock notifications data
-const mockNotifications = [
-  {
-    id: "1",
-    title: "Budget Alert: GPT-4 Usage",
-    description: "GPT-4 spending has reached 85% of monthly budget ($8,500 of $10,000).",
-    time: "5 minutes ago",
-    read: false,
-    type: "warning" as const,
-  },
-  {
-    id: "2",
-    title: "New Team Member Added",
-    description: "Sarah Chen was added to the Engineering team by Admin.",
-    time: "1 hour ago",
-    read: false,
-    type: "info" as const,
-  },
-  {
-    id: "3",
-    title: "Cost Optimization Available",
-    description: "Switch to Claude 3 Haiku for 40% cost savings on classification tasks.",
-    time: "3 hours ago",
-    read: true,
-    type: "success" as const,
-  },
-  {
-    id: "4",
-    title: "API Key Expiring Soon",
-    description: "Your OpenAI API key will expire in 7 days. Please rotate it.",
-    time: "1 day ago",
-    read: true,
-    type: "warning" as const,
-  },
-];
+// Map notification categories/priorities to UI types
+const getNotificationType = (category: string, priority: string): "warning" | "info" | "success" => {
+  if (priority === "urgent" || priority === "high") return "warning";
+  if (category === "optimization" || category === "report") return "success";
+  return "info";
+};
 
 export const DashboardHeader: FC = () => {
   const pathname = usePathname();
   const pageTitle = pageTitles[pathname] || "Dashboard";
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Mock notification count - in real app this would come from state/API
-  const notificationCount = mockNotifications.filter((n) => !n.read).length;
+  // Use real notifications from API
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, dismiss } = useNotifications();
+  const notificationCount = unreadCount.total;
+
+  // Transform notifications for display
+  const displayNotifications = useMemo(() => {
+    return notifications.map((n) => ({
+      id: n.id,
+      title: n.title,
+      description: n.body,
+      time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }),
+      read: !!n.readAt,
+      type: getNotificationType(n.category, n.priority),
+      actionUrl: n.primaryActionUrl,
+    }));
+  }, [notifications]);
 
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-secondary bg-primary px-6">
-        {/* Left: Page Title */}
+        {/* Left: Search */}
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-primary">{pageTitle}</h1>
-        </div>
-
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Search / Command */}
           <button
-            className="flex h-9 items-center gap-2 rounded-lg border border-secondary bg-secondary_subtle px-3 text-sm text-tertiary transition-colors hover:border-tertiary hover:text-secondary"
+            className="flex h-9 w-64 items-center gap-2 rounded-lg border border-secondary bg-secondary_subtle px-3 text-sm text-tertiary transition-colors hover:border-tertiary hover:text-secondary"
             onClick={() => {
               // TODO: Implement command palette
             }}
           >
             <Iconsax.SearchNormal1 size={16} variant="Outline" />
-            <span className="hidden sm:inline">Search...</span>
-            <kbd className="hidden rounded bg-tertiary px-1.5 py-0.5 text-xs font-medium text-primary sm:inline">
+            <span className="flex-1 text-left">Search...</span>
+            <kbd className="rounded bg-tertiary px-1.5 py-0.5 text-xs font-medium text-primary">
               ⌘K
             </kbd>
           </button>
+        </div>
 
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
           {/* Notifications */}
           <button
             onClick={() => setIsNotificationOpen(true)}
-            className="relative flex size-9 items-center justify-center rounded-lg border border-secondary bg-secondary_subtle transition-colors hover:border-tertiary hover:bg-secondary"
+            className="relative flex size-9 items-center justify-center rounded-full border border-secondary bg-secondary_subtle transition-colors hover:border-tertiary hover:bg-secondary"
           >
             <Iconsax.Notification size={20} variant="Outline" color="currentColor" className="text-fg-secondary" />
             {notificationCount > 0 && (
@@ -173,7 +157,14 @@ export const DashboardHeader: FC = () => {
           </SlideoutMenu.Header>
           <SlideoutMenu.Content>
             <div className="flex flex-col gap-1">
-              {mockNotifications.map((notification) => (
+              {displayNotifications.length === 0 && !isLoading && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Iconsax.Notification size={48} variant="Outline" className="text-fg-quaternary mb-3" />
+                  <p className="text-sm text-tertiary">No notifications yet</p>
+                  <p className="text-xs text-quaternary mt-1">We&apos;ll notify you when something important happens</p>
+                </div>
+              )}
+              {displayNotifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={cx(
@@ -207,7 +198,14 @@ export const DashboardHeader: FC = () => {
                         {notification.title}
                       </p>
                       {!notification.read && (
-                        <span className="mt-1.5 size-2 flex-shrink-0 rounded-full bg-brand-solid" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead([notification.id]);
+                          }}
+                          className="mt-1.5 size-2 flex-shrink-0 rounded-full bg-brand-solid hover:bg-brand-solid_hover transition-colors"
+                          title="Mark as read"
+                        />
                       )}
                     </div>
                     <p className="mt-0.5 text-sm text-tertiary line-clamp-2">
@@ -220,6 +218,11 @@ export const DashboardHeader: FC = () => {
             </div>
           </SlideoutMenu.Content>
           <SlideoutMenu.Footer className="flex w-full items-center justify-between gap-3">
+            {notificationCount > 0 && (
+              <Button size="md" color="link-gray" onClick={() => markAllAsRead()}>
+                Mark all as read
+              </Button>
+            )}
             <Button size="md" color="link-gray" href="/dashboard/alerts">
               View all alerts
             </Button>

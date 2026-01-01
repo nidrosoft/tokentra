@@ -1,6 +1,7 @@
 export * from "./budget-card";
 export * from "./budget-list";
 export * from "./budget-progress";
+export * from "./budget-edit-slideout";
 export * from "./budget-form";
 export * from "./budget-forecast";
 export * from "./budgets-overview";

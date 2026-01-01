@@ -1,17 +1,24 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { Add, People, Wallet, Chart } from "iconsax-react";
+import { useState, useMemo } from "react";
+import { Add, People } from "iconsax-react";
 import type { Team } from "@/types";
 import { Button } from "@/components/base/buttons/button";
+import { MetricsChart04 } from "@/components/application/metrics/metrics";
 import { TeamList } from "./team-list";
 import { CreateTeamDialog } from "./create-team-dialog";
 import type { TeamFormData } from "./team-form";
-import { mockTeams, mockTeamsSummary } from "@/data/mock-teams";
+import { useTeams, useCreateTeam } from "@/hooks/use-teams";
+import type { TeamSummary } from "@/lib/organization/types";
+import { EmptyState } from "../shared/empty-state";
 
 const AddIcon = ({ className }: { className?: string }) => (
   <Add size={20} color="currentColor" className={className} variant="Outline" />
+);
+
+const TeamIcon = () => (
+  <People size={32} color="#7F56D9" variant="Bulk" />
 );
 
 const formatCurrency = (amount: number): string => {
@@ -23,31 +30,56 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export const TeamsOverview: FC = () => {
-  const [teams, setTeams] = useState<Team[]>(mockTeams);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+// Convert API TeamSummary to legacy Team type for UI compatibility
+function convertToLegacyTeam(team: TeamSummary): Team {
+  return {
+    id: team.id,
+    organizationId: team.orgId,
+    name: team.name,
+    description: team.description,
+    apiKeyPatterns: [],
+    monthlyBudget: team.monthlySpend || 0,
+    currentMonthSpend: team.monthlySpend || 0,
+    memberCount: team.memberCount || 0,
+    createdAt: new Date(team.createdAt),
+    updatedAt: new Date(team.updatedAt),
+  };
+}
 
-  const handleCreateSubmit = (data: TeamFormData) => {
-    setIsCreating(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newTeam: Team = {
-        id: `team_${Date.now()}`,
-        organizationId: "org_1",
+export const TeamsOverview: FC = () => {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  // Fetch teams from API
+  const { data: teamsData, isLoading: isLoadingTeams } = useTeams();
+  const createTeamMutation = useCreateTeam();
+
+  // Convert API response to legacy format
+  const teams: Team[] = useMemo(() => {
+    if (teamsData && teamsData.length > 0) {
+      return teamsData.map(convertToLegacyTeam);
+    }
+    return [];
+  }, [teamsData]);
+
+  const isEmpty = !isLoadingTeams && teams.length === 0;
+
+  const handleCreateSubmit = async (data: TeamFormData) => {
+    try {
+      await createTeamMutation.mutateAsync({
         name: data.name,
         description: data.description,
-        apiKeyPatterns: data.apiKeyPatterns,
-        monthlyBudget: data.monthlyBudget,
-        currentMonthSpend: 0,
-        memberCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setTeams((prev) => [newTeam, ...prev]);
-      setIsCreating(false);
+        settings: {
+          spendingLimitEnabled: data.monthlyBudget > 0,
+        },
+        metadata: {
+          apiKeyPatterns: data.apiKeyPatterns,
+          monthlyBudget: data.monthlyBudget,
+        },
+      });
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Failed to create team:", error);
+    }
   };
 
   const handleView = (id: string) => {
@@ -83,65 +115,67 @@ export const TeamsOverview: FC = () => {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand-secondary">
-              <People size={20} color="#7F56D9" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Teams</p>
-              <p className="text-2xl font-semibold text-primary">{teams.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-success-secondary">
-              <People size={20} color="#17B26A" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Members</p>
-              <p className="text-2xl font-semibold text-primary">{totalMembers}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-warning-secondary">
-              <Wallet size={20} color="#F79009" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Spend</p>
-              <p className="text-2xl font-semibold text-primary">{formatCurrency(totalSpend)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand-secondary">
-              <Chart size={20} color="#7F56D9" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Avg per Team</p>
-              <p className="text-2xl font-semibold text-primary">{formatCurrency(avgSpend)}</p>
-            </div>
-          </div>
-        </div>
+        <MetricsChart04
+          title={String(teams.length)}
+          subtitle="Total Teams"
+          change="+2"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 3 }, { value: 4 }, { value: 5 }, { value: 6 }, { value: 7 }, { value: 8 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={String(totalMembers)}
+          subtitle="Total Members"
+          change="+12"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 20 }, { value: 25 }, { value: 28 }, { value: 32 }, { value: 38 }, { value: 45 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(totalSpend)}
+          subtitle="Total Spend"
+          change="+8.5%"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 8 }, { value: 10 }, { value: 12 }, { value: 14 }, { value: 16 }, { value: 18 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(avgSpend)}
+          subtitle="Avg per Team"
+          change="-2.1%"
+          changeTrend="negative"
+          chartColor="text-fg-error-secondary"
+          chartData={[{ value: 15 }, { value: 14 }, { value: 13 }, { value: 12 }, { value: 11 }, { value: 10 }]}
+          actions={false}
+        />
       </div>
 
-      {/* Teams List */}
-      <TeamList
-        teams={teams}
-        onView={handleView}
-        onEdit={handleEdit}
-      />
+      {/* Teams List or Empty State */}
+      {isEmpty ? (
+        <EmptyState
+          icon={<TeamIcon />}
+          title="No teams yet"
+          description="Create your first team to organize members and track AI spending across your organization."
+          actionLabel="Create Team"
+          onAction={() => setIsCreateDialogOpen(true)}
+        />
+      ) : (
+        <TeamList
+          teams={teams}
+          onView={handleView}
+          onEdit={handleEdit}
+        />
+      )}
 
       {/* Create Team Dialog */}
       <CreateTeamDialog
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         onSubmit={handleCreateSubmit}
-        isLoading={isCreating}
+        isLoading={createTeamMutation.isPending}
       />
     </div>
   );

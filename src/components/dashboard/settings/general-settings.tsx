@@ -1,10 +1,11 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select, type SelectItemType } from "@/components/base/select/select";
+import { useOrganizationSettings } from "@/hooks/use-settings";
 import { cx } from "@/utils/cx";
 
 export interface GeneralSettingsProps {
@@ -20,6 +21,7 @@ const currencyOptions: SelectItemType[] = [
 ];
 
 const timezoneOptions: SelectItemType[] = [
+  { id: "UTC", label: "UTC (Coordinated Universal Time)" },
   { id: "America/Los_Angeles", label: "Pacific Time (PT)" },
   { id: "America/Denver", label: "Mountain Time (MT)" },
   { id: "America/Chicago", label: "Central Time (CT)" },
@@ -27,21 +29,67 @@ const timezoneOptions: SelectItemType[] = [
   { id: "Europe/London", label: "London (GMT)" },
   { id: "Europe/Paris", label: "Central European (CET)" },
   { id: "Asia/Tokyo", label: "Japan (JST)" },
+  { id: "Asia/Singapore", label: "Singapore (SGT)" },
+  { id: "Australia/Sydney", label: "Sydney (AEST)" },
 ];
 
 export const GeneralSettings: FC<GeneralSettingsProps> = ({ className }) => {
-  const [orgName, setOrgName] = useState("Acme Corporation");
+  const { settings, isLoading, updateSettings, isUpdating } = useOrganizationSettings();
+  
+  const [orgName, setOrgName] = useState("");
   const [currency, setCurrency] = useState("USD");
-  const [timezone, setTimezone] = useState("America/Los_Angeles");
-  const [isSaving, setIsSaving] = useState(false);
+  const [timezone, setTimezone] = useState("UTC");
+  const [hasChanges, setHasChanges] = useState(false);
 
-  const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      console.log("Settings saved:", { orgName, currency, timezone });
-    }, 1000);
+  // Sync local state with fetched settings
+  useEffect(() => {
+    if (settings) {
+      setOrgName(settings.displayName || "");
+      setCurrency(settings.currency || "USD");
+      setTimezone(settings.timezone || "UTC");
+      setHasChanges(false);
+    }
+  }, [settings]);
+
+  const handleChange = (setter: (value: string) => void) => (value: string) => {
+    setter(value);
+    setHasChanges(true);
   };
+
+  const handleSave = async () => {
+    try {
+      await updateSettings({
+        displayName: orgName,
+        currency,
+        timezone,
+      });
+      setHasChanges(false);
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    }
+  };
+
+  const handleCancel = () => {
+    if (settings) {
+      setOrgName(settings.displayName || "");
+      setCurrency(settings.currency || "USD");
+      setTimezone(settings.timezone || "UTC");
+      setHasChanges(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className={cx("space-y-6", className)}>
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 w-48 rounded bg-secondary" />
+          <div className="h-4 w-64 rounded bg-secondary" />
+          <div className="h-10 w-full max-w-md rounded bg-secondary" />
+          <div className="h-10 w-full max-w-md rounded bg-secondary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cx("space-y-6", className)}>
@@ -58,7 +106,7 @@ export const GeneralSettings: FC<GeneralSettingsProps> = ({ className }) => {
           <label className="text-sm font-medium text-secondary">Organization Name</label>
           <Input
             value={orgName}
-            onChange={(value) => setOrgName(value)}
+            onChange={handleChange(setOrgName)}
             placeholder="Your organization name"
             className="max-w-md"
           />
@@ -71,7 +119,10 @@ export const GeneralSettings: FC<GeneralSettingsProps> = ({ className }) => {
           <label className="text-sm font-medium text-secondary">Default Currency</label>
           <Select
             selectedKey={currency}
-            onSelectionChange={(key) => setCurrency(key as string)}
+            onSelectionChange={(key) => {
+              setCurrency(key as string);
+              setHasChanges(true);
+            }}
             items={currencyOptions}
             className="max-w-md"
           >
@@ -86,7 +137,10 @@ export const GeneralSettings: FC<GeneralSettingsProps> = ({ className }) => {
           <label className="text-sm font-medium text-secondary">Timezone</label>
           <Select
             selectedKey={timezone}
-            onSelectionChange={(key) => setTimezone(key as string)}
+            onSelectionChange={(key) => {
+              setTimezone(key as string);
+              setHasChanges(true);
+            }}
             items={timezoneOptions}
             className="max-w-md"
           >
@@ -97,9 +151,11 @@ export const GeneralSettings: FC<GeneralSettingsProps> = ({ className }) => {
 
       {/* Actions */}
       <div className="flex justify-end gap-3 border-t border-secondary pt-5">
-        <Button size="md" color="secondary">Cancel</Button>
-        <Button size="md" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save Changes"}
+        <Button size="md" color="secondary" onClick={handleCancel} disabled={!hasChanges || isUpdating}>
+          Cancel
+        </Button>
+        <Button size="md" onClick={handleSave} disabled={!hasChanges || isUpdating}>
+          {isUpdating ? "Saving..." : "Save Changes"}
         </Button>
       </div>
     </div>

@@ -1,5 +1,7 @@
 export * from "./team-card";
 export * from "./team-list";
+export * from "./team-view-slideout";
+export * from "./team-edit-slideout";
 export * from "./team-form";
 export * from "./team-members";
 export * from "./team-spend";

@@ -1,14 +1,17 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { Lamp, ExportSquare } from "iconsax-react";
+import { ExportSquare, MagicStar, Refresh2 } from "iconsax-react";
 import { Button } from "@/components/base/buttons/button";
+import { MetricsChart04 } from "@/components/application/metrics/metrics";
 import { OptimizationScore } from "./optimization-score";
 import { RecommendationList } from "./recommendation-list";
 import { SavingsChart } from "./savings-chart";
+import { EmptyState } from "../shared/empty-state";
+import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
+import { useRecommendations, useOptimizationSummary, useApplyRecommendation, useDismissRecommendation, useAnalyzeOptimization } from "@/hooks/use-optimization";
+import { useToastNotification } from "@/components/feedback/toast-notifications";
 import {
-  mockRecommendations,
   mockSavingsHistory,
   mockOptimizationScore,
 } from "@/data/mock-recommendations";
@@ -17,29 +20,77 @@ const ExportIcon = ({ className }: { className?: string }) => (
   <ExportSquare size={20} color="currentColor" className={className} variant="Outline" />
 );
 
+const OptimizationIcon = () => (
+  <MagicStar size={32} color="#7F56D9" variant="Bulk" />
+);
+
+const RefreshIcon = ({ className }: { className?: string }) => (
+  <Refresh2 size={20} color="currentColor" className={className} variant="Outline" />
+);
+
 export const OptimizationOverview: FC = () => {
-  const [recommendations, setRecommendations] = useState(mockRecommendations);
+  const { showToast } = useToastNotification();
+  
+  // Fetch recommendations from API
+  const { data: recommendationsData, isLoading, refetch } = useRecommendations();
+  const { data: summaryData } = useOptimizationSummary();
+  const applyMutation = useApplyRecommendation();
+  const dismissMutation = useDismissRecommendation();
+  const analyzeMutation = useAnalyzeOptimization();
+
+  // Define recommendation type for this component
+  type LocalRec = {
+    id: string;
+    status: string;
+    impact?: { estimatedMonthlySavings?: number };
+    [key: string]: unknown;
+  };
+
+  // API returns { success, data: { recommendations, summary } } - extract the array
+  const apiResponse = recommendationsData as unknown as { data?: { recommendations?: LocalRec[] } } | LocalRec[] | undefined;
+  const recommendations: LocalRec[] = Array.isArray(apiResponse) 
+    ? apiResponse 
+    : (apiResponse?.data?.recommendations || []);
+
+  const summaryResponse = summaryData as unknown as { data?: { summary?: { totalPotentialSavings?: number } } } | undefined;
+  const totalPotentialSavingsFromSummary = summaryResponse?.data?.summary?.totalPotentialSavings;
 
   const pendingCount = recommendations.filter((r) => r.status === "pending").length;
   const appliedCount = recommendations.filter((r) => r.status === "applied").length;
-  const totalPotentialSavings = recommendations
-    .filter((r) => r.status === "pending")
-    .reduce((sum, r) => sum + r.impact.estimatedMonthlySavings, 0);
+  const totalPotentialSavings = totalPotentialSavingsFromSummary || 
+    recommendations.filter((r) => r.status === "pending")
+      .reduce((sum, r) => sum + (r.impact?.estimatedMonthlySavings || 0), 0);
+  
+  const isEmpty = !isLoading && recommendations.length === 0;
 
-  const handleApply = (id: string) => {
-    setRecommendations((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "applied" as const, appliedAt: new Date() } : r
-      )
-    );
+  const handleApply = async (id: string) => {
+    try {
+      await applyMutation.mutateAsync(id);
+      showToast("success", "Recommendation Applied", "The optimization has been applied successfully.");
+      refetch();
+    } catch (error) {
+      showToast("error", "Failed to Apply", "Could not apply the recommendation. Please try again.");
+    }
   };
 
-  const handleDismiss = (id: string) => {
-    setRecommendations((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "dismissed" as const, dismissedAt: new Date() } : r
-      )
-    );
+  const handleDismiss = async (id: string) => {
+    try {
+      await dismissMutation.mutateAsync(id);
+      showToast("info", "Recommendation Dismissed", "The recommendation has been dismissed.");
+      refetch();
+    } catch (error) {
+      showToast("error", "Failed to Dismiss", "Could not dismiss the recommendation. Please try again.");
+    }
+  };
+
+  const handleAnalyze = async () => {
+    try {
+      await analyzeMutation.mutateAsync();
+      showToast("success", "Analysis Complete", "New recommendations have been generated based on your usage.");
+      refetch();
+    } catch (error) {
+      showToast("error", "Analysis Failed", "Could not run optimization analysis. Please try again.");
+    }
   };
 
   return (
@@ -62,48 +113,86 @@ export const OptimizationOverview: FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button 
+            size="md" 
+            color="secondary" 
+            iconLeading={RefreshIcon}
+            onClick={handleAnalyze}
+            disabled={analyzeMutation.isPending}
+          >
+            {analyzeMutation.isPending ? "Analyzing..." : "Run Analysis"}
+          </Button>
           <Button size="md" color="secondary" iconLeading={ExportIcon}>
             Export Report
           </Button>
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex min-h-[300px] items-center justify-center">
+          <LoadingIndicator type="line-simple" size="lg" label="Loading recommendations..." />
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Pending Recommendations</p>
-          <p className="mt-1 text-2xl font-semibold text-primary">{pendingCount}</p>
-          <p className="mt-1 text-xs text-quaternary">actionable opportunities</p>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Potential Savings</p>
-          <p className="mt-1 text-2xl font-semibold text-success-primary">
-            ${totalPotentialSavings.toLocaleString()}/mo
-          </p>
-          <p className="mt-1 text-xs text-quaternary">if all recommendations applied</p>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Applied This Month</p>
-          <p className="mt-1 text-2xl font-semibold text-brand-primary">{appliedCount}</p>
-          <p className="mt-1 text-xs text-quaternary">recommendations implemented</p>
-        </div>
-      </div>
-
-      {/* Score and Chart Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <OptimizationScore
-          score={mockOptimizationScore.score}
-          breakdown={mockOptimizationScore.breakdown}
+        <MetricsChart04
+          title={String(pendingCount)}
+          subtitle="Pending Recommendations"
+          change="actionable"
+          changeTrend="positive"
+          chartColor="text-fg-warning-secondary"
+          chartData={[{ value: 5 }, { value: 6 }, { value: 4 }, { value: 7 }, { value: 5 }, { value: 6 }]}
+          actions={false}
         />
-        <SavingsChart data={mockSavingsHistory} />
+        <MetricsChart04
+          title={`$${totalPotentialSavings.toLocaleString()}/mo`}
+          subtitle="Potential Savings"
+          change="available"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 800 }, { value: 1000 }, { value: 1200 }, { value: 1400 }, { value: 1600 }, { value: 1800 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={String(appliedCount)}
+          subtitle="Applied This Month"
+          change="+3"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 1 }, { value: 2 }, { value: 3 }, { value: 4 }, { value: 5 }, { value: 6 }]}
+          actions={false}
+        />
       </div>
 
-      {/* Recommendations List */}
-      <RecommendationList
-        recommendations={recommendations}
-        onApply={handleApply}
-        onDismiss={handleDismiss}
-      />
+      {/* Score and Chart Row or Empty State */}
+      {isEmpty ? (
+        <EmptyState
+          icon={<OptimizationIcon />}
+          title="No optimization data yet"
+          description="Connect AI providers and start tracking usage to receive AI-powered recommendations for reducing your spending."
+          actionLabel="View Providers"
+          onAction={() => window.location.href = "/dashboard/providers"}
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <OptimizationScore
+              score={mockOptimizationScore.score}
+              breakdown={mockOptimizationScore.breakdown}
+            />
+            <SavingsChart data={mockSavingsHistory} />
+          </div>
+
+          {/* Recommendations List */}
+          <RecommendationList
+            recommendations={recommendations as unknown as import("@/types").Recommendation[]}
+            onApply={handleApply}
+            onDismiss={handleDismiss}
+          />
+        </>
+      )}
     </div>
   );
 };

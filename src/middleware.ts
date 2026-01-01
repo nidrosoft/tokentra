@@ -10,6 +10,12 @@ const publicPaths = [
   "/api/auth",
   "/api/v1/health",
   "/api/sdk",
+  "/api/v1/sdk",
+  "/api/webhooks",
+  "/api/email",
+  "/api/onboarding",
+  "/onboarding",
+  "/unsubscribe",
 ];
 
 const isPublicPath = (path: string): boolean => {

@@ -13,7 +13,8 @@ import {
   Eye,
   EyeSlash,
 } from "iconsax-react";
-import { OpenAI, Anthropic, Azure, Google, Aws } from "@lobehub/icons";
+import { OpenAI, Anthropic, Azure, Google, Aws, Mistral, Cohere, DeepSeek, Groq } from "@lobehub/icons";
+import { Flash } from "iconsax-react"; // For xAI (Grok)
 import { DialogTrigger, Modal, ModalOverlay, Dialog } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
@@ -172,6 +173,101 @@ const providers = [
       },
     ],
     docsUrl: "https://docs.aws.amazon.com/bedrock/",
+  },
+  {
+    id: "xai",
+    name: "xAI (Grok)",
+    description: "Grok-2, Grok-2 Mini, Grok Vision",
+    Icon: ({ size }: { size: number }) => <Flash size={size} color="#1DA1F2" variant="Bold" />,
+    authType: "api_key" as const,
+    apiKeyUrl: "https://console.x.ai/",
+    apiKeyInstructions: "Go to console.x.ai → API Keys → Create new key",
+    fields: [
+      {
+        id: "apiKey",
+        label: "API Key",
+        type: "password",
+        placeholder: "xai-...",
+        required: true,
+      },
+    ],
+    docsUrl: "https://docs.x.ai/",
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    description: "DeepSeek-V3, DeepSeek-R1, DeepSeek-Coder",
+    Icon: DeepSeek,
+    authType: "api_key" as const,
+    apiKeyUrl: "https://platform.deepseek.com/api_keys",
+    apiKeyInstructions: "Go to platform.deepseek.com → API Keys → Create API Key",
+    fields: [
+      {
+        id: "apiKey",
+        label: "API Key",
+        type: "password",
+        placeholder: "sk-...",
+        required: true,
+      },
+    ],
+    docsUrl: "https://platform.deepseek.com/api-docs",
+  },
+  {
+    id: "mistral",
+    name: "Mistral AI",
+    description: "Mistral Large, Mixtral, Codestral, Ministral",
+    Icon: Mistral,
+    authType: "api_key" as const,
+    apiKeyUrl: "https://console.mistral.ai/api-keys/",
+    apiKeyInstructions: "Go to console.mistral.ai → API Keys → Create new key",
+    fields: [
+      {
+        id: "apiKey",
+        label: "API Key",
+        type: "password",
+        placeholder: "Your Mistral API key",
+        required: true,
+      },
+    ],
+    docsUrl: "https://docs.mistral.ai/",
+  },
+  {
+    id: "cohere",
+    name: "Cohere",
+    description: "Command R+, Command R, Embed, Rerank",
+    Icon: Cohere,
+    authType: "api_key" as const,
+    apiKeyUrl: "https://dashboard.cohere.com/api-keys",
+    apiKeyInstructions: "Go to dashboard.cohere.com → API Keys → Create new key",
+    fields: [
+      {
+        id: "apiKey",
+        label: "API Key",
+        type: "password",
+        placeholder: "Your Cohere API key",
+        required: true,
+      },
+    ],
+    docsUrl: "https://docs.cohere.com/",
+  },
+  {
+    id: "groq",
+    name: "Groq",
+    description: "Llama 3.3, Mixtral, Gemma - Ultra-fast inference",
+    Icon: Groq,
+    authType: "api_key" as const,
+    apiKeyUrl: "https://console.groq.com/keys",
+    apiKeyInstructions: "Go to console.groq.com → API Keys → Create API Key",
+    fields: [
+      {
+        id: "apiKey",
+        label: "API Key",
+        type: "password",
+        placeholder: "gsk_...",
+        required: true,
+      },
+    ],
+    docsUrl: "https://console.groq.com/docs/quickstart",
   },
 ];
 

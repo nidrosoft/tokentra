@@ -1,6 +1,7 @@
 export * from "./provider-card";
 export * from "./provider-list";
 export * from "./provider-status";
+export * from "./provider-settings-slideout";
 export * from "./connect-provider-dialog";
 export * from "./providers-overview";
 export * from "./openai-connect";

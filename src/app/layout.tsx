@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { QueryProvider } from "@/providers/query-provider";
 import { RouteProvider } from "@/providers/router-provider";
 import { Theme } from "@/providers/theme";
+import { ToastNotificationProvider } from "@/components/feedback/toast-notifications";
 import "@/styles/globals.css";
 import { cx } from "@/utils/cx";
 
@@ -35,9 +37,15 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={cx(inter.variable, "bg-primary antialiased")}>
-                <RouteProvider>
-                    <Theme>{children}</Theme>
-                </RouteProvider>
+                <QueryProvider>
+                    <RouteProvider>
+                        <Theme>
+                            <ToastNotificationProvider>
+                                {children}
+                            </ToastNotificationProvider>
+                        </Theme>
+                    </RouteProvider>
+                </QueryProvider>
             </body>
         </html>
     );

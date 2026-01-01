@@ -81,11 +81,17 @@ const timeWindowItems: SelectItemType[] = [
   { id: "7d", label: "7 days" },
 ];
 
-const channelOptions: { type: AlertChannelType; label: string; configField: string; placeholder: string }[] = [
-  { type: "email", label: "Email", configField: "recipients", placeholder: "admin@example.com, team@example.com" },
-  { type: "slack", label: "Slack", configField: "channel", placeholder: "#cost-alerts" },
-  { type: "pagerduty", label: "PagerDuty", configField: "serviceKey", placeholder: "Service key" },
-  { type: "webhook", label: "Webhook", configField: "url", placeholder: "https://api.example.com/alerts" },
+const channelOptions: { type: AlertChannelType; label: string; configFields: { field: string; placeholder: string; label?: string }[] }[] = [
+  { type: "email", label: "Email", configFields: [{ field: "recipients", placeholder: "admin@example.com, team@example.com", label: "Recipients" }] },
+  { type: "slack", label: "Slack", configFields: [
+    { field: "webhookUrl", placeholder: "https://hooks.slack.com/services/...", label: "Webhook URL" },
+    { field: "channel", placeholder: "#cost-alerts (optional)", label: "Channel" }
+  ]},
+  { type: "pagerduty", label: "PagerDuty", configFields: [{ field: "integrationKey", placeholder: "Integration key", label: "Integration Key" }] },
+  { type: "webhook", label: "Webhook", configFields: [
+    { field: "url", placeholder: "https://api.example.com/alerts", label: "URL" },
+    { field: "secret", placeholder: "Optional signing secret", label: "Secret (optional)" }
+  ]},
 ];
 
 export const AlertForm: FC<AlertFormProps> = ({
@@ -271,13 +277,17 @@ export const AlertForm: FC<AlertFormProps> = ({
                   />
                 </div>
                 {isEnabled && (
-                  <div className="mt-3 pl-6">
-                    <Input
-                      placeholder={channel.placeholder}
-                      value={getChannelConfig(channel.type, channel.configField)}
-                      onChange={(value) => handleChannelConfig(channel.type, channel.configField, value)}
-                      size="sm"
-                    />
+                  <div className="mt-3 space-y-2 pl-6">
+                    {channel.configFields.map((configField) => (
+                      <Input
+                        key={configField.field}
+                        label={configField.label}
+                        placeholder={configField.placeholder}
+                        value={getChannelConfig(channel.type, configField.field)}
+                        onChange={(value) => handleChannelConfig(channel.type, configField.field, value)}
+                        size="sm"
+                      />
+                    ))}
                   </div>
                 )}
               </div>

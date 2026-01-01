@@ -1,0 +1,255 @@
+/**
+ * Organization API Test Script
+ * Tests Teams, Projects, and Cost Centers endpoints
+ * 
+ * Run with: npx tsx scripts/test-organization-api.ts
+ */
+
+const BASE_URL = process.env.API_URL || 'http://localhost:3000';
+const ORG_ID = process.env.TEST_ORG_ID || 'b1c2d3e4-f5a6-7890-bcde-f12345678901';
+
+interface TestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+}
+
+const results: TestResult[] = [];
+
+async function apiRequest(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function test(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+    results.push({ name, passed: true });
+    console.log(`✅ ${name}`);
+  } catch (error) {
+    results.push({ name, passed: false, error: (error as Error).message });
+    console.log(`❌ ${name}: ${(error as Error).message}`);
+  }
+}
+
+function assert(condition: boolean, message: string): void {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+// Test variables to store created resources
+let createdTeamId: string | null = null;
+let createdProjectId: string | null = null;
+let createdCostCenterId: string | null = null;
+
+async function runTests(): Promise<void> {
+  console.log('\n🧪 Organization API Tests\n');
+  console.log(`Base URL: ${BASE_URL}`);
+  console.log(`Organization ID: ${ORG_ID}\n`);
+  console.log('─'.repeat(50));
+
+  // ============================================
+  // TEAMS TESTS
+  // ============================================
+  console.log('\n📋 TEAMS\n');
+
+  await test('GET /teams - List teams', async () => {
+    const response = await apiRequest('GET', `/teams?organization_id=${ORG_ID}`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  await test('POST /teams - Create team', async () => {
+    const response = await apiRequest('POST', '/teams', {
+      organization_id: ORG_ID,
+      name: 'Test Team ' + Date.now(),
+      description: 'Created by test script',
+      color: '#6366f1',
+    });
+
+    assert(response.success !== false, `API returned error: ${response.error}`);
+    
+    if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+      createdTeamId = (response.data as { id: string }).id;
+      console.log(`   Created team ID: ${createdTeamId}`);
+    }
+  });
+
+  if (createdTeamId) {
+    await test('GET /teams/:id - Get single team', async () => {
+      const response = await apiRequest('GET', `/teams/${createdTeamId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+      assert(response.data !== null, 'Team not found');
+    });
+
+    await test('PATCH /teams/:id - Update team', async () => {
+      const response = await apiRequest('PATCH', `/teams/${createdTeamId}`, {
+        name: 'Updated Test Team',
+        description: 'Updated by test script',
+      });
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    await test('GET /teams/:id/members - Get team members', async () => {
+      const response = await apiRequest('GET', `/teams/${createdTeamId}/members`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  // ============================================
+  // PROJECTS TESTS
+  // ============================================
+  console.log('\n📁 PROJECTS\n');
+
+  await test('GET /projects - List projects', async () => {
+    const response = await apiRequest('GET', `/projects?organization_id=${ORG_ID}`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  await test('POST /projects - Create project', async () => {
+    const response = await apiRequest('POST', '/projects', {
+      organization_id: ORG_ID,
+      name: 'Test Project ' + Date.now(),
+      description: 'Created by test script',
+      category: 'internal',
+      tags: ['test', 'api'],
+      ownerTeamId: createdTeamId || undefined,
+    });
+
+    assert(response.success !== false, `API returned error: ${response.error}`);
+    
+    if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+      createdProjectId = (response.data as { id: string }).id;
+      console.log(`   Created project ID: ${createdProjectId}`);
+    }
+  });
+
+  if (createdProjectId) {
+    await test('GET /projects/:id - Get single project', async () => {
+      const response = await apiRequest('GET', `/projects/${createdProjectId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+      assert(response.data !== null, 'Project not found');
+    });
+
+    await test('PATCH /projects/:id - Update project', async () => {
+      const response = await apiRequest('PATCH', `/projects/${createdProjectId}`, {
+        name: 'Updated Test Project',
+        description: 'Updated by test script',
+        status: 'active',
+      });
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  // ============================================
+  // COST CENTERS TESTS
+  // ============================================
+  console.log('\n💰 COST CENTERS\n');
+
+  await test('GET /cost-centers - List cost centers', async () => {
+    const response = await apiRequest('GET', `/cost-centers?organization_id=${ORG_ID}`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  await test('GET /cost-centers?hierarchy=true - Get hierarchy', async () => {
+    const response = await apiRequest('GET', `/cost-centers?organization_id=${ORG_ID}&hierarchy=true`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  await test('POST /cost-centers - Create cost center', async () => {
+    const response = await apiRequest('POST', '/cost-centers', {
+      organization_id: ORG_ID,
+      code: 'TEST-' + Date.now(),
+      name: 'Test Cost Center',
+      description: 'Created by test script',
+    });
+
+    assert(response.success !== false, `API returned error: ${response.error}`);
+    
+    if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+      createdCostCenterId = (response.data as { id: string }).id;
+      console.log(`   Created cost center ID: ${createdCostCenterId}`);
+    }
+  });
+
+  if (createdCostCenterId) {
+    await test('GET /cost-centers/:id - Get single cost center', async () => {
+      const response = await apiRequest('GET', `/cost-centers/${createdCostCenterId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+      assert(response.data !== null, 'Cost center not found');
+    });
+
+    await test('PATCH /cost-centers/:id - Update cost center', async () => {
+      const response = await apiRequest('PATCH', `/cost-centers/${createdCostCenterId}`, {
+        name: 'Updated Test Cost Center',
+        description: 'Updated by test script',
+      });
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  // ============================================
+  // CLEANUP - Archive created resources
+  // ============================================
+  console.log('\n🧹 CLEANUP\n');
+
+  if (createdProjectId) {
+    await test('DELETE /projects/:id - Archive project', async () => {
+      const response = await apiRequest('DELETE', `/projects/${createdProjectId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  if (createdTeamId) {
+    await test('DELETE /teams/:id - Archive team', async () => {
+      const response = await apiRequest('DELETE', `/teams/${createdTeamId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  if (createdCostCenterId) {
+    await test('DELETE /cost-centers/:id - Archive cost center', async () => {
+      const response = await apiRequest('DELETE', `/cost-centers/${createdCostCenterId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  // Print summary
+  console.log('\n' + '─'.repeat(50));
+  console.log('\n📊 Test Summary\n');
+  
+  const passed = results.filter((r) => r.passed).length;
+  const failed = results.filter((r) => !r.passed).length;
+  
+  console.log(`Total: ${results.length}`);
+  console.log(`Passed: ${passed}`);
+  console.log(`Failed: ${failed}`);
+  
+  if (failed > 0) {
+    console.log('\n❌ Failed Tests:');
+    results
+      .filter((r) => !r.passed)
+      .forEach((r) => console.log(`   - ${r.name}: ${r.error}`));
+  }
+  
+  console.log('\n');
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+runTests().catch(console.error);

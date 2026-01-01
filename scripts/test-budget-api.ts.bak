@@ -1,0 +1,219 @@
+/**
+ * Budget API Test Script
+ * 
+ * Run with: npx tsx scripts/test-budget-api.ts
+ * 
+ * This script tests the budget management API endpoints to verify
+ * the implementation is working correctly.
+ */
+
+const BASE_URL = process.env.API_URL || 'http://localhost:3000';
+const ORG_ID = process.env.TEST_ORG_ID || 'b1c2d3e4-f5a6-7890-bcde-f12345678901';
+
+interface TestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+  data?: unknown;
+}
+
+const results: TestResult[] = [];
+
+async function apiRequest(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v1${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+async function test(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+    results.push({ name, passed: true });
+    console.log(`✅ ${name}`);
+  } catch (error) {
+    results.push({ name, passed: false, error: (error as Error).message });
+    console.log(`❌ ${name}: ${(error as Error).message}`);
+  }
+}
+
+function assert(condition: boolean, message: string): void {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+// Test variables to store created resources
+let createdBudgetId: string | null = null;
+let createdThresholdIds: string[] = [];
+
+async function runTests(): Promise<void> {
+  console.log('\n🧪 Budget API Tests\n');
+  console.log(`Base URL: ${BASE_URL}`);
+  console.log(`Organization ID: ${ORG_ID}\n`);
+  console.log('─'.repeat(50));
+
+  // Test 1: List budgets (should work even if empty)
+  await test('GET /budgets - List budgets', async () => {
+    const response = await apiRequest('GET', `/budgets?organization_id=${ORG_ID}`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  // Test 2: Get budget stats
+  await test('GET /budgets/stats - Get budget statistics', async () => {
+    const response = await apiRequest('GET', `/budgets/stats?organization_id=${ORG_ID}`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  // Test 3: Create a budget
+  await test('POST /budgets - Create budget', async () => {
+    const response = await apiRequest('POST', '/budgets', {
+      organization_id: ORG_ID,
+      name: 'Test Budget ' + Date.now(),
+      description: 'Created by test script',
+      type: 'organization',
+      amount: 5000,
+      period: 'monthly',
+      mode: 'soft',
+      thresholds: [
+        { percentage: 50, action: 'alert', alertEnabled: true },
+        { percentage: 80, action: 'alert', alertEnabled: true },
+        { percentage: 100, action: 'block', alertEnabled: true },
+      ],
+    });
+
+    assert(response.success !== false, `API returned error: ${response.error}`);
+    
+    if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+      createdBudgetId = (response.data as { id: string }).id;
+      console.log(`   Created budget ID: ${createdBudgetId}`);
+    }
+  });
+
+  // Test 4: Get single budget
+  if (createdBudgetId) {
+    await test('GET /budgets/:id - Get single budget', async () => {
+      const response = await apiRequest('GET', `/budgets/${createdBudgetId}`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+      assert(response.data !== null, 'Budget not found');
+    });
+
+    // Test 5: Update budget
+    await test('PATCH /budgets/:id - Update budget', async () => {
+      const response = await apiRequest('PATCH', `/budgets/${createdBudgetId}`, {
+        name: 'Updated Test Budget',
+        amount: 7500,
+      });
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    // Test 6: Get thresholds
+    await test('GET /budgets/:id/thresholds - Get thresholds', async () => {
+      const response = await apiRequest('GET', `/budgets/${createdBudgetId}/thresholds`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+      
+      if (response.data && Array.isArray(response.data)) {
+        createdThresholdIds = response.data.map((t: { id: string }) => t.id);
+        console.log(`   Found ${createdThresholdIds.length} thresholds`);
+      }
+    });
+
+    // Test 7: Create additional threshold
+    await test('POST /budgets/:id/thresholds - Create threshold', async () => {
+      const response = await apiRequest('POST', `/budgets/${createdBudgetId}/thresholds`, {
+        thresholds: [
+          { percentage: 90, action: 'throttle', alertEnabled: true },
+        ],
+      });
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    // Test 8: Get periods
+    await test('GET /budgets/:id/periods - Get periods', async () => {
+      const response = await apiRequest('GET', `/budgets/${createdBudgetId}/periods`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    // Test 9: Create adjustment
+    await test('POST /budgets/:id/adjustments - Create adjustment', async () => {
+      const response = await apiRequest('POST', `/budgets/${createdBudgetId}/adjustments`, {
+        adjustment_type: 'increase',
+        amount: 1000,
+        reason: 'Test adjustment',
+        user_id: '00000000-0000-0000-0000-000000000001',
+      });
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    // Test 10: Get adjustments
+    await test('GET /budgets/:id/adjustments - Get adjustments', async () => {
+      const response = await apiRequest('GET', `/budgets/${createdBudgetId}/adjustments`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    // Test 11: Recalculate budget
+    await test('POST /budgets/:id/periods - Recalculate', async () => {
+      const response = await apiRequest('POST', `/budgets/${createdBudgetId}/periods`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+
+    // Test 12: Archive budget (cleanup)
+    await test('DELETE /budgets/:id?archive=true - Archive budget', async () => {
+      const response = await apiRequest('DELETE', `/budgets/${createdBudgetId}?archive=true`);
+      assert(response.success !== false, `API returned error: ${response.error}`);
+    });
+  }
+
+  // Test 13: Background jobs status
+  await test('GET /budgets/jobs - Get job status', async () => {
+    const response = await apiRequest('GET', `/budgets/jobs?organization_id=${ORG_ID}`);
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  // Test 14: Run background jobs
+  await test('POST /budgets/jobs - Run background jobs', async () => {
+    const response = await apiRequest('POST', '/budgets/jobs', {
+      organization_id: ORG_ID,
+      job_type: 'all',
+    });
+    assert(response.success !== false, `API returned error: ${response.error}`);
+  });
+
+  // Print summary
+  console.log('\n' + '─'.repeat(50));
+  console.log('\n📊 Test Summary\n');
+  
+  const passed = results.filter((r) => r.passed).length;
+  const failed = results.filter((r) => !r.passed).length;
+  
+  console.log(`Total: ${results.length}`);
+  console.log(`Passed: ${passed}`);
+  console.log(`Failed: ${failed}`);
+  
+  if (failed > 0) {
+    console.log('\n❌ Failed Tests:');
+    results
+      .filter((r) => !r.passed)
+      .forEach((r) => console.log(`   - ${r.name}: ${r.error}`));
+  }
+  
+  console.log('\n');
+  process.exit(failed > 0 ? 1 : 0);
+}
+
+// Run tests
+runTests().catch(console.error);

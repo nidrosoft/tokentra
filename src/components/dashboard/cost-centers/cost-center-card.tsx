@@ -1,10 +1,13 @@
 "use client";
 
 import type { FC } from "react";
+import { useState } from "react";
 import { Building, Wallet, Edit2, Eye } from "iconsax-react";
 import type { CostCenter } from "@/types";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
+import { CostCenterViewSlideout } from "./cost-center-view-slideout";
+import { CostCenterEditSlideout } from "./cost-center-edit-slideout";
 import { cx } from "@/utils/cx";
 
 export interface CostCenterCardProps {
@@ -37,6 +40,9 @@ export const CostCenterCard: FC<CostCenterCardProps> = ({
   onEdit,
   className,
 }) => {
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   const budgetUsage = costCenter.monthlyBudget
     ? (costCenter.currentMonthSpend / costCenter.monthlyBudget) * 100
     : 0;
@@ -47,9 +53,20 @@ export const CostCenterCard: FC<CostCenterCardProps> = ({
     return { color: "success" as const, label: "On Track" };
   };
 
+  const handleView = () => {
+    setIsViewOpen(true);
+    onView?.(costCenter.id);
+  };
+
+  const handleEdit = () => {
+    setIsEditOpen(true);
+    onEdit?.(costCenter.id);
+  };
+
   const budgetStatus = getBudgetStatus();
 
   return (
+    <>
     <div
       className={cx(
         "flex flex-col rounded-xl border border-secondary bg-primary p-5 shadow-xs transition-shadow hover:shadow-md",
@@ -116,7 +133,7 @@ export const CostCenterCard: FC<CostCenterCardProps> = ({
           size="sm"
           color="secondary"
           iconLeading={ViewIcon}
-          onClick={() => onView?.(costCenter.id)}
+          onClick={handleView}
           className="flex-1"
         >
           View
@@ -125,11 +142,36 @@ export const CostCenterCard: FC<CostCenterCardProps> = ({
           size="sm"
           color="tertiary"
           iconLeading={EditIcon}
-          onClick={() => onEdit?.(costCenter.id)}
+          onClick={handleEdit}
         >
           Edit
         </Button>
       </div>
     </div>
+
+    {/* View Slideout */}
+    <CostCenterViewSlideout
+      isOpen={isViewOpen}
+      onOpenChange={setIsViewOpen}
+      costCenter={costCenter}
+      onEdit={() => {
+        setIsViewOpen(false);
+        setIsEditOpen(true);
+      }}
+    />
+
+    {/* Edit Slideout */}
+    <CostCenterEditSlideout
+      isOpen={isEditOpen}
+      onOpenChange={setIsEditOpen}
+      costCenter={costCenter}
+      onSave={(costCenterId, updates) => {
+        console.log("Saving cost center:", costCenterId, updates);
+      }}
+      onDelete={(costCenterId) => {
+        console.log("Deleting cost center:", costCenterId);
+      }}
+    />
+    </>
   );
 };

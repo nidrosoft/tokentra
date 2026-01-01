@@ -1,6 +1,7 @@
 "use client";
 
 import type { FC } from "react";
+import { useState } from "react";
 import {
   Building,
   People,
@@ -14,6 +15,8 @@ import type { Budget, BudgetScopeType } from "@/types";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { BudgetProgress } from "./budget-progress";
+import { BudgetEditSlideout } from "./budget-edit-slideout";
+import { useUpdateBudget, useDeleteBudget } from "@/hooks/use-budgets";
 import { cx } from "@/utils/cx";
 
 export interface BudgetCardProps {
@@ -60,15 +63,49 @@ export const BudgetCard: FC<BudgetCardProps> = ({
   onEdit,
   className,
 }) => {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const updateBudgetMutation = useUpdateBudget();
+  const deleteBudgetMutation = useDeleteBudget();
+  
   const ScopeIcon = scopeIcons[budget.scope.type];
   const statusInfo = statusConfig[budget.status];
-  const isExceeded = budget.status === "exceeded";
+
+  const handleEdit = () => {
+    setIsEditOpen(true);
+    onEdit?.(budget.id);
+  };
+
+  const handleSave = async (budgetId: string, updates: Partial<Budget>) => {
+    try {
+      await updateBudgetMutation.mutateAsync({
+        budgetId,
+        data: {
+          name: updates.name,
+          amount: updates.amount,
+          mode: updates.hardLimit ? "hard" : "soft",
+          tags: updates.alertThresholds?.map(String),
+        },
+      });
+      setIsEditOpen(false);
+    } catch (error) {
+      console.error("Failed to update budget:", error);
+    }
+  };
+
+  const handleDelete = async (budgetId: string) => {
+    try {
+      await deleteBudgetMutation.mutateAsync({ budgetId, archive: true });
+      setIsEditOpen(false);
+    } catch (error) {
+      console.error("Failed to delete budget:", error);
+    }
+  };
 
   return (
+    <>
     <div
       className={cx(
-        "rounded-xl border bg-primary p-5 shadow-xs transition-shadow hover:shadow-md",
-        isExceeded ? "border-error-primary" : "border-secondary",
+        "rounded-xl border border-secondary bg-primary p-5 shadow-xs transition-shadow hover:shadow-md",
         className
       )}
     >
@@ -119,11 +156,21 @@ export const BudgetCard: FC<BudgetCardProps> = ({
           size="sm"
           color="secondary"
           iconLeading={SettingsIcon}
-          onClick={() => onEdit?.(budget.id)}
+          onClick={handleEdit}
         >
           Edit
         </Button>
       </div>
     </div>
+
+    {/* Edit Slideout */}
+    <BudgetEditSlideout
+      isOpen={isEditOpen}
+      onOpenChange={setIsEditOpen}
+      budget={budget}
+      onSave={handleSave}
+      onDelete={handleDelete}
+    />
+    </>
   );
 };

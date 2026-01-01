@@ -1,17 +1,24 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { Add, Building, Wallet, Chart, PercentageCircle } from "iconsax-react";
-import type { CostCenter } from "@/types";
+import { useState, useMemo } from "react";
+import { Add, Building } from "iconsax-react";
+import type { CostCenter as LegacyCostCenter } from "@/types";
 import { Button } from "@/components/base/buttons/button";
+import { MetricsChart04 } from "@/components/application/metrics/metrics";
 import { CostCenterList } from "./cost-center-list";
 import { CreateCostCenterDialog } from "./create-cost-center-dialog";
 import type { CostCenterFormData } from "./cost-center-form";
-import { mockCostCenters, mockCostCentersSummary } from "@/data/mock-cost-centers";
+import { useCostCenters, useCreateCostCenter } from "@/hooks/use-cost-centers";
+import type { CostCenter } from "@/lib/organization/types";
+import { EmptyState } from "../shared/empty-state";
 
 const AddIcon = ({ className }: { className?: string }) => (
   <Add size={20} color="currentColor" className={className} variant="Outline" />
+);
+
+const CostCenterIcon = () => (
+  <Building size={32} color="#7F56D9" variant="Bulk" />
 );
 
 const formatCurrency = (amount: number): string => {
@@ -23,29 +30,49 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export const CostCentersOverview: FC = () => {
-  const [costCenters, setCostCenters] = useState<CostCenter[]>(mockCostCenters);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+// Convert API CostCenter to legacy type for UI compatibility
+function convertToLegacyCostCenter(cc: CostCenter): LegacyCostCenter {
+  return {
+    id: cc.id,
+    organizationId: cc.orgId,
+    name: cc.name,
+    description: cc.description,
+    code: cc.code,
+    monthlyBudget: 0,
+    currentMonthSpend: 0,
+    createdAt: new Date(cc.createdAt),
+    updatedAt: new Date(cc.updatedAt),
+  };
+}
 
-  const handleCreateSubmit = (data: CostCenterFormData) => {
-    setIsCreating(true);
-    setTimeout(() => {
-      const newCostCenter: CostCenter = {
-        id: `cc_${Date.now()}`,
-        organizationId: "org_1",
+export const CostCentersOverview: FC = () => {
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  // Fetch cost centers from API
+  const { data: costCentersData, isLoading: isLoadingCostCenters } = useCostCenters();
+  const createCostCenterMutation = useCreateCostCenter();
+
+  // Convert API response to legacy format
+  const costCenters: LegacyCostCenter[] = useMemo(() => {
+    if (costCentersData && costCentersData.length > 0) {
+      return costCentersData.map((cc) => convertToLegacyCostCenter(cc as CostCenter));
+    }
+    return [];
+  }, [costCentersData]);
+
+  const isEmpty = !isLoadingCostCenters && costCenters.length === 0;
+
+  const handleCreateSubmit = async (data: CostCenterFormData) => {
+    try {
+      await createCostCenterMutation.mutateAsync({
+        code: data.code,
         name: data.name,
         description: data.description,
-        code: data.code,
-        monthlyBudget: data.monthlyBudget,
-        currentMonthSpend: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setCostCenters((prev) => [newCostCenter, ...prev]);
-      setIsCreating(false);
+      });
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Failed to create cost center:", error);
+    }
   };
 
   const handleView = (id: string) => {
@@ -81,65 +108,67 @@ export const CostCentersOverview: FC = () => {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand-secondary">
-              <Building size={20} color="#7F56D9" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Cost Centers</p>
-              <p className="text-2xl font-semibold text-primary">{costCenters.length}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-success-secondary">
-              <Wallet size={20} color="#17B26A" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Budget</p>
-              <p className="text-2xl font-semibold text-primary">{formatCurrency(totalBudget)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-warning-secondary">
-              <Chart size={20} color="#F79009" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Total Spend</p>
-              <p className="text-2xl font-semibold text-primary">{formatCurrency(totalSpend)}</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand-secondary">
-              <PercentageCircle size={20} color="#7F56D9" variant="Bold" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-tertiary">Avg Utilization</p>
-              <p className="text-2xl font-semibold text-primary">{avgUtilization}%</p>
-            </div>
-          </div>
-        </div>
+        <MetricsChart04
+          title={String(costCenters.length)}
+          subtitle="Cost Centers"
+          change="+1"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 3 }, { value: 4 }, { value: 4 }, { value: 5 }, { value: 5 }, { value: 6 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(totalBudget)}
+          subtitle="Total Budget"
+          change="+5%"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 50 }, { value: 55 }, { value: 60 }, { value: 65 }, { value: 70 }, { value: 75 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(totalSpend)}
+          subtitle="Total Spend"
+          change="+9.3%"
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 30 }, { value: 35 }, { value: 40 }, { value: 45 }, { value: 48 }, { value: 52 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={`${avgUtilization}%`}
+          subtitle="Avg Utilization"
+          change="+3%"
+          changeTrend="positive"
+          chartColor="text-fg-warning-secondary"
+          chartData={[{ value: 60 }, { value: 62 }, { value: 65 }, { value: 68 }, { value: 70 }, { value: 72 }]}
+          actions={false}
+        />
       </div>
 
-      {/* Cost Centers List */}
-      <CostCenterList
-        costCenters={costCenters}
-        onView={handleView}
-        onEdit={handleEdit}
-      />
+      {/* Cost Centers List or Empty State */}
+      {isEmpty ? (
+        <EmptyState
+          icon={<CostCenterIcon />}
+          title="No cost centers yet"
+          description="Create your first cost center to organize and allocate AI costs across departments and business units."
+          actionLabel="Create Cost Center"
+          onAction={() => setIsCreateDialogOpen(true)}
+        />
+      ) : (
+        <CostCenterList
+          costCenters={costCenters}
+          onView={handleView}
+          onEdit={handleEdit}
+        />
+      )}
 
       {/* Create Cost Center Dialog */}
       <CreateCostCenterDialog
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         onSubmit={handleCreateSubmit}
-        isLoading={isCreating}
+        isLoading={createCostCenterMutation.isPending}
       />
     </div>
   );

@@ -1,25 +1,35 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { Add, TickCircle, Warning2, CloseCircle } from "iconsax-react";
+import { useState, useMemo } from "react";
+import { Add, WalletMoney } from "iconsax-react";
 import { Button } from "@/components/base/buttons/button";
+import { MetricsChart04 } from "@/components/application/metrics/metrics";
 import { BudgetList } from "./budget-list";
 import { CreateBudgetDialog } from "./create-budget-dialog";
 import type { BudgetFormData } from "./budget-form";
-import { mockBudgets, mockBudgetSummary } from "@/data/mock-budgets";
+import { useBudgets, useBudgetStats, useCreateBudget } from "@/hooks/use-budgets";
 import type { Budget } from "@/types";
+import type { BudgetSummary, CreateBudgetInput } from "@/lib/budget";
+import { EmptyState } from "../shared/empty-state";
+
+const DEMO_ORG_ID = process.env.NEXT_PUBLIC_DEMO_ORG_ID || "b1c2d3e4-f5a6-7890-bcde-f12345678901";
 
 const AddIcon = ({ className }: { className?: string }) => (
   <Add size={20} color="currentColor" className={className} variant="Outline" />
 );
 
 // Calculate days remaining in current period
-const now = new Date();
-const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-const daysRemaining = Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+const calculateDaysRemaining = () => {
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+};
 
 const formatCurrency = (value: number): string => {
+  if (value === undefined || value === null || isNaN(value)) {
+    return "$0";
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -28,49 +38,111 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
+// Convert BudgetSummary to legacy Budget format for backward compatibility
+const convertToLegacyBudget = (summary: BudgetSummary): Budget => {
+  const utilization = summary.utilizationPercentage || 0;
+  let status: "ok" | "warning" | "exceeded" = "ok";
+  if (utilization >= 100) status = "exceeded";
+  else if (utilization >= 80) status = "warning";
+
+  return {
+    id: summary.id,
+    organizationId: summary.organizationId,
+    name: summary.name,
+    amount: summary.totalBudget || summary.baseAmount,
+    currency: "USD",
+    period: summary.period === "annual" ? "yearly" : summary.period as Budget["period"],
+    scope: {
+      type: summary.type as Budget["scope"]["type"],
+      id: summary.teamId || summary.projectId || summary.costCenterId || summary.provider,
+      name: summary.teamName || summary.projectName || summary.costCenterName || summary.provider,
+    },
+    alertThresholds: [50, 80, 100],
+    hardLimit: summary.mode === "hard",
+    currentSpend: summary.spentAmount || 0,
+    status,
+    createdAt: new Date(summary.createdAt),
+    updatedAt: new Date(summary.updatedAt),
+  };
+};
+
 export const BudgetsOverview: FC = () => {
-  const [budgets, setBudgets] = useState<Budget[]>(mockBudgets);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const daysRemaining = useMemo(() => calculateDaysRemaining(), []);
+
+  // Fetch budgets from API
+  const { data: budgetsResponse, isLoading: isLoadingBudgets } = useBudgets({
+    organizationId: DEMO_ORG_ID,
+  });
+
+  // Fetch budget stats
+  const { data: statsResponse } = useBudgetStats(DEMO_ORG_ID);
+
+  // Create budget mutation
+  const createBudgetMutation = useCreateBudget();
+
+  // Convert API response to legacy format
+  const budgets: Budget[] = useMemo(() => {
+    if (budgetsResponse?.budgets && budgetsResponse.budgets.length > 0) {
+      return budgetsResponse.budgets.map(convertToLegacyBudget);
+    }
+    return [];
+  }, [budgetsResponse]);
+
+  const isEmpty = !isLoadingBudgets && budgets.length === 0;
+
+  const BudgetIcon = () => (
+    <WalletMoney size={32} color="#7F56D9" variant="Bulk" />
+  );
 
   const handleEdit = (budgetId: string) => {
     console.log("Editing budget:", budgetId);
   };
 
-  const handleCreateSubmit = (data: BudgetFormData) => {
-    setIsCreating(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newBudget: Budget = {
-        id: `budget_${Date.now()}`,
-        organizationId: "org_1",
-        name: data.name,
-        amount: data.amount,
-        currency: data.currency,
-        period: data.period,
-        scope: {
-          type: data.scopeType,
-          id: data.scopeId,
-          name: data.scopeName || (data.scopeType === "organization" ? "Acme Corp" : undefined),
-        },
-        alertThresholds: data.alertThresholds,
-        hardLimit: data.hardLimit,
-        currentSpend: 0,
-        status: "ok",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setBudgets((prev) => [newBudget, ...prev]);
-      setIsCreating(false);
+  const handleCreateSubmit = async (data: BudgetFormData) => {
+    const input: CreateBudgetInput = {
+      name: data.name,
+      description: data.description,
+      type: data.scopeType,
+      amount: data.amount,
+      period: data.period === "yearly" ? "annual" : data.period === "daily" ? "weekly" : data.period as CreateBudgetInput["period"],
+      mode: data.hardLimit ? "hard" : "soft",
+      teamId: data.scopeType === "team" ? data.scopeId : undefined,
+      projectId: data.scopeType === "project" ? data.scopeId : undefined,
+      provider: data.scopeType === "provider" ? data.scopeId : undefined,
+      model: data.scopeType === "model" ? data.scopeId : undefined,
+      thresholds: data.alertThresholds.map((percentage) => ({
+        percentage,
+        action: percentage >= 100 ? "block" : "alert",
+        alertEnabled: true,
+      })),
+    };
+
+    try {
+      await createBudgetMutation.mutateAsync({
+        organizationId: DEMO_ORG_ID,
+        data: input,
+      });
       setIsCreateDialogOpen(false);
-    }, 1000);
+    } catch (error) {
+      console.error("Failed to create budget:", error);
+    }
   };
 
-  const totalAllocated = budgets.reduce((sum, b) => sum + b.amount, 0);
-  const totalSpent = budgets.reduce((sum, b) => sum + b.currentSpend, 0);
+  // Use stats from API or calculate from budgets
+  const stats = statsResponse || {
+    totalBudget: budgets.reduce((sum, b) => sum + b.amount, 0),
+    totalSpent: budgets.reduce((sum, b) => sum + b.currentSpend, 0),
+    budgetCount: budgets.length,
+    exceededCount: budgets.filter((b) => b.status === "exceeded").length,
+    approachingCount: budgets.filter((b) => b.status === "warning").length,
+  };
+
+  const totalAllocated = stats.totalBudget;
+  const totalSpent = stats.totalSpent;
   const budgetsOk = budgets.filter((b) => b.status === "ok").length;
-  const budgetsWarning = budgets.filter((b) => b.status === "warning").length;
-  const budgetsExceeded = budgets.filter((b) => b.status === "exceeded").length;
+  const budgetsWarning = stats.approachingCount || budgets.filter((b) => b.status === "warning").length;
+  const budgetsExceeded = stats.exceededCount || budgets.filter((b) => b.status === "exceeded").length;
   const utilizationPercent = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0;
 
   return (
@@ -94,58 +166,67 @@ export const BudgetsOverview: FC = () => {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Total Allocated</p>
-          <p className="mt-1 text-2xl font-semibold text-primary">
-            {formatCurrency(totalAllocated)}
-          </p>
-          <p className="mt-1 text-xs text-quaternary">across {budgets.length} budgets</p>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Total Spent</p>
-          <p className="mt-1 text-2xl font-semibold text-primary">
-            {formatCurrency(totalSpent)}
-          </p>
-          <p className="mt-1 text-xs text-quaternary">{utilizationPercent.toFixed(1)}% utilized</p>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Budget Health</p>
-          <div className="mt-2 flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <TickCircle size={16} color="#12B76A" variant="Bold" />
-              <span className="text-lg font-semibold text-success-primary">{budgetsOk}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Warning2 size={16} color="#F79009" variant="Bold" />
-              <span className="text-lg font-semibold text-warning-primary">{budgetsWarning}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <CloseCircle size={16} color="#F04438" variant="Bold" />
-              <span className="text-lg font-semibold text-error-primary">{budgetsExceeded}</span>
-            </div>
-          </div>
-          <p className="mt-1 text-xs text-quaternary">on track / at risk / exceeded</p>
-        </div>
-        <div className="rounded-xl border border-secondary bg-primary p-5 shadow-xs">
-          <p className="text-sm font-medium text-tertiary">Days Remaining</p>
-          <p className="mt-1 text-2xl font-semibold text-primary">{daysRemaining}</p>
-          <p className="mt-1 text-xs text-quaternary">in current billing period</p>
-        </div>
+        <MetricsChart04
+          title={formatCurrency(totalAllocated)}
+          subtitle="Total Allocated"
+          change={`${budgets.length} budgets`}
+          changeTrend="positive"
+          chartColor="text-fg-success-secondary"
+          chartData={[{ value: 40 }, { value: 45 }, { value: 50 }, { value: 55 }, { value: 60 }, { value: 65 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={formatCurrency(totalSpent)}
+          subtitle="Total Spent"
+          change={`${utilizationPercent.toFixed(1)}%`}
+          changeTrend={utilizationPercent > 80 ? "negative" : "positive"}
+          chartColor={utilizationPercent > 80 ? "text-fg-error-secondary" : "text-fg-success-secondary"}
+          chartData={[{ value: 20 }, { value: 25 }, { value: 30 }, { value: 35 }, { value: 40 }, { value: 45 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={`${budgetsOk}/${budgetsWarning}/${budgetsExceeded}`}
+          subtitle="Budget Health"
+          change="ok/warn/over"
+          changeTrend={budgetsExceeded > 0 ? "negative" : "positive"}
+          chartColor={budgetsExceeded > 0 ? "text-fg-warning-secondary" : "text-fg-success-secondary"}
+          chartData={[{ value: 5 }, { value: 4 }, { value: 5 }, { value: 6 }, { value: 5 }, { value: 6 }]}
+          actions={false}
+        />
+        <MetricsChart04
+          title={String(daysRemaining)}
+          subtitle="Days Remaining"
+          change="this period"
+          changeTrend="positive"
+          chartColor="text-fg-warning-secondary"
+          chartData={[{ value: 30 }, { value: 25 }, { value: 20 }, { value: 15 }, { value: 10 }, { value: 5 }]}
+          actions={false}
+        />
       </div>
 
-      {/* Budget List */}
-      <BudgetList
-        budgets={budgets}
-        daysRemaining={daysRemaining}
-        onEdit={handleEdit}
-      />
+      {/* Budget List or Empty State */}
+      {isEmpty ? (
+        <EmptyState
+          icon={<BudgetIcon />}
+          title="No budgets yet"
+          description="Create your first budget to set spending limits and track utilization across teams, projects, or providers."
+          actionLabel="Create Budget"
+          onAction={() => setIsCreateDialogOpen(true)}
+        />
+      ) : (
+        <BudgetList
+          budgets={budgets}
+          daysRemaining={daysRemaining}
+          onEdit={handleEdit}
+        />
+      )}
 
       {/* Create Budget Dialog */}
       <CreateBudgetDialog
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         onSubmit={handleCreateSubmit}
-        isLoading={isCreating}
+        isLoading={createBudgetMutation.isPending}
       />
     </div>
   );

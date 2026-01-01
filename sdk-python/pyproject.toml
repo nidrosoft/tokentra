@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tokentra"
+version = "2.0.0"
+description = "TokenTra SDK for AI cost intelligence and usage tracking"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "TokenTra", email = "sdk@tokentra.com"}
+]
+maintainers = [
+    {name = "TokenTra", email = "sdk@tokentra.com"}
+]
+keywords = [
+    "ai",
+    "llm",
+    "openai",
+    "anthropic",
+    "claude",
+    "gpt",
+    "cost",
+    "tracking",
+    "monitoring",
+    "finops",
+    "optimization",
+    "token",
+    "usage"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+openai = [
+    "openai>=1.0.0",
+]
+anthropic = [
+    "anthropic>=0.10.0",
+]
+all = [
+    "openai>=1.0.0",
+    "anthropic>=0.10.0",
+]
+
+[project.urls]
+Homepage = "https://tokentra.com"
+Documentation = "https://docs.tokentra.com/sdk/python"
+Repository = "https://github.com/tokentra/sdk-python"
+Issues = "https://github.com/tokentra/sdk-python/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tokentra*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -24,8 +24,8 @@ const statusConfig: Record<ProviderStatusType, {
   },
   disconnected: {
     label: "Disconnected",
-    color: "text-quaternary",
-    bgColor: "bg-secondary",
+    color: "text-warning-primary",
+    bgColor: "bg-warning-secondary",
     icon: MinusCirlce,
   },
   error: {

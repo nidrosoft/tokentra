@@ -1,4 +1,14 @@
-export type ProviderType = "openai" | "anthropic" | "azure" | "google" | "aws";
+export type ProviderType = 
+  | "openai" 
+  | "anthropic" 
+  | "azure" 
+  | "google" 
+  | "aws"
+  | "xai"        // xAI (Grok)
+  | "deepseek"   // DeepSeek
+  | "mistral"    // Mistral AI
+  | "cohere"     // Cohere
+  | "groq";      // Groq (inference platform)
 
 export type ProviderStatus = "connected" | "disconnected" | "error" | "syncing";
 

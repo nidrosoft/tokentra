@@ -1,8 +1,7 @@
 "use client";
 
 import type { FC } from "react";
-import { useState } from "react";
-import { Calendar, ArrowDown2, Refresh2 } from "iconsax-react";
+import { Calendar, Refresh2 } from "iconsax-react";
 import { Button } from "@/components/base/buttons/button";
 import { Select } from "@/components/base/select/select";
 import { cx } from "@/utils/cx";
@@ -15,9 +14,19 @@ export interface CostFilters {
   granularity: string;
 }
 
+export interface FilterOptions {
+  providers?: string[];
+  models?: string[];
+  teams?: { id: string; name: string }[];
+  projects?: { id: string; name: string }[];
+  costCenters?: { id: string; name: string }[];
+}
+
 export interface CostFiltersProps {
   filters: CostFilters;
   onFilterChange: (filters: CostFilters) => void;
+  onReset?: () => void;
+  filterOptions?: FilterOptions;
   className?: string;
 }
 
@@ -29,33 +38,25 @@ const dateRangeOptions = [
   { id: "thisMonth", label: "This month" },
   { id: "lastMonth", label: "Last month" },
   { id: "last90d", label: "Last 90 days" },
+  { id: "last6m", label: "Last 6 months" },
+  { id: "lastYear", label: "Last year" },
 ];
 
-const providerOptions = [
+const defaultProviderOptions = [
   { id: "all", label: "All Providers" },
   { id: "openai", label: "OpenAI" },
   { id: "anthropic", label: "Anthropic" },
   { id: "google", label: "Google AI" },
   { id: "azure", label: "Azure OpenAI" },
   { id: "aws", label: "AWS Bedrock" },
+  { id: "cohere", label: "Cohere" },
+  { id: "mistral", label: "Mistral AI" },
+  { id: "deepseek", label: "DeepSeek" },
+  { id: "xai", label: "xAI" },
 ];
 
-const modelOptions = [
+const defaultModelOptions = [
   { id: "all", label: "All Models" },
-  { id: "gpt-4o", label: "GPT-4o" },
-  { id: "gpt-4o-mini", label: "GPT-4o Mini" },
-  { id: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
-  { id: "claude-3-haiku", label: "Claude 3 Haiku" },
-  { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
-];
-
-const teamOptions = [
-  { id: "all", label: "All Teams" },
-  { id: "engineering", label: "Engineering" },
-  { id: "product", label: "Product" },
-  { id: "research", label: "Research" },
-  { id: "sales", label: "Sales" },
-  { id: "marketing", label: "Marketing" },
 ];
 
 const granularityOptions = [
@@ -73,7 +74,7 @@ const RefreshIcon = ({ className }: { className?: string }) => (
   <Refresh2 size={20} color="currentColor" className={className} variant="Outline" />
 );
 
-export const CostFiltersBar: FC<CostFiltersProps> = ({ filters, onFilterChange, className }) => {
+export const CostFiltersBar: FC<CostFiltersProps> = ({ filters, onFilterChange, onReset, filterOptions, className }) => {
   const handleFilterChange = (key: keyof CostFilters, value: string) => {
     onFilterChange({ ...filters, [key]: value });
   };
@@ -86,7 +87,29 @@ export const CostFiltersBar: FC<CostFiltersProps> = ({ filters, onFilterChange, 
       team: "all",
       granularity: "day",
     });
+    onReset?.();
   };
+
+  // Build provider options from API data or use defaults
+  const providerOptions = [
+    { id: "all", label: "All Providers" },
+    ...(filterOptions?.providers?.map((p) => ({ 
+      id: p, 
+      label: p.charAt(0).toUpperCase() + p.slice(1) 
+    })) || defaultProviderOptions.slice(1)),
+  ];
+
+  // Build model options from API data
+  const modelOptions = [
+    { id: "all", label: "All Models" },
+    ...(filterOptions?.models?.map((m) => ({ id: m, label: m })) || []),
+  ];
+
+  // Build team options from API data
+  const teamOptions = [
+    { id: "all", label: "All Teams" },
+    ...(filterOptions?.teams?.map((t) => ({ id: t.id, label: t.name })) || []),
+  ];
 
   return (
     <div className={cx("flex flex-wrap items-center gap-3", className)}>
@@ -118,7 +141,7 @@ export const CostFiltersBar: FC<CostFiltersProps> = ({ filters, onFilterChange, 
       </div>
 
       {/* Model */}
-      <div className="w-40">
+      <div className="w-44">
         <Select
           size="sm"
           placeholder="Model"
