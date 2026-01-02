@@ -62,6 +62,11 @@ export class TokenTraCore extends EventEmitter {
         mode: config.privacy?.mode || "metrics_only",
         redactPatterns: config.privacy?.redactPatterns || [],
       },
+      optimization: config.optimization || {
+        enabled: false,
+        enableRouting: false,
+        enableCaching: false,
+      },
     };
 
     // Initialize circuit breaker

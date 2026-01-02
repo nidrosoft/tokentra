@@ -14,6 +14,11 @@ const PROVIDER_RATE_LIMITS: Record<ProviderType, number> = {
   google: 100,
   azure: 100,
   aws: 100,
+  xai: 60,
+  deepseek: 60,
+  mistral: 60,
+  cohere: 100,
+  groq: 100,
 };
 
 interface RequestQueue {

@@ -28,6 +28,7 @@ export interface AlertCondition {
   metric: string;
   operator: "gt" | "gte" | "lt" | "lte" | "eq";
   value: number;
+  threshold?: number;
   timeWindow?: string;
 }
 

@@ -21,6 +21,11 @@ const PROVIDER_ENDPOINTS: Record<ProviderType, string> = {
   google: 'https://aiplatform.googleapis.com/',
   azure: 'https://management.azure.com/',
   aws: 'https://bedrock.us-east-1.amazonaws.com/',
+  xai: 'https://api.x.ai/v1/models',
+  deepseek: 'https://api.deepseek.com/v1/models',
+  mistral: 'https://api.mistral.ai/v1/models',
+  cohere: 'https://api.cohere.ai/v1/models',
+  groq: 'https://api.groq.com/openai/v1/models',
 };
 
 export class HealthMonitor {

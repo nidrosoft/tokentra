@@ -49,7 +49,7 @@ export function calculateTokenEfficiency(
 export function aggregateTokenUsage(
   records: Array<{ inputTokens: number; outputTokens: number; cachedTokens?: number }>
 ): TokenBreakdown {
-  return records.reduce(
+  return records.reduce<TokenBreakdown>(
     (acc, record) => ({
       inputTokens: acc.inputTokens + record.inputTokens,
       outputTokens: acc.outputTokens + record.outputTokens,

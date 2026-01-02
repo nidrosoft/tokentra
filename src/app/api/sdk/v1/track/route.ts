@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
         feature_tag: event.featureTag,
         user_id: event.userId,
         request_id: event.requestId,
-        metadata: event.metadata as Record<string, unknown>,
+        metadata: event.metadata as unknown as Record<string, never>,
         timestamp: event.timestamp ?? new Date().toISOString(),
       })
       .select("id")

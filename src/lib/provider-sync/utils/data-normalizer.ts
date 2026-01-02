@@ -112,12 +112,17 @@ export class DataNormalizer {
     model: string,
     provider: ProviderType
   ): { modelFamily: string; modelVersion?: string } {
-    const patterns: Record<ProviderType, RegExp> = {
+    const patterns: Partial<Record<ProviderType, RegExp>> = {
       openai: /^(gpt-[\d.]+[a-z]*|o[\d]+(?:-mini)?|dall-e-[\d]+|whisper|tts)(?:-(\d{4}-\d{2}-\d{2}))?/i,
       anthropic: /^(claude-[\d.]+(?:-[a-z]+)?)(?:-(\d{8}))?/i,
       google: /^(gemini-[\d.]+(?:-[a-z]+)?)/i,
       azure: /^(gpt-[\d.]+[a-z]*)/i,
       aws: /^(?:[a-z]+\.)?([a-z]+-[\d.]+(?:-[a-z]+)?)/i,
+      xai: /^(grok-[\d.]+(?:-[a-z]+)?)/i,
+      deepseek: /^(deepseek-[\w]+)/i,
+      mistral: /^(mistral-[\w]+|mixtral-[\w]+|codestral)/i,
+      cohere: /^(command-[\w]+|embed-[\w]+|rerank-[\w]+)/i,
+      groq: /^(llama-[\d.]+|mixtral-[\d.]+|gemma-[\d.]+)/i,
     };
 
     const pattern = patterns[provider] || /.+/;

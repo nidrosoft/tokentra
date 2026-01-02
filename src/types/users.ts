@@ -1,34 +1,6 @@
-export type UserRole = "owner" | "admin" | "member" | "viewer";
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface OrganizationMember {
-  id: string;
-  organizationId: string;
-  userId: string;
-  role: UserRole;
-  user: User;
-  joinedAt: Date;
-}
-
-export interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  plan: PlanTier;
-  billingEmail?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export type PlanTier = "free" | "starter" | "pro" | "business" | "enterprise";
+// User and UserRole are exported from auth.ts to avoid duplicate exports
+// Organization and OrganizationMember are exported from organization.ts to avoid duplicate exports
+import type { User } from "./auth";
 
 export interface ApiKey {
   id: string;

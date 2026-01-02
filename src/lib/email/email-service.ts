@@ -4,17 +4,31 @@
  */
 
 import { Resend } from "resend";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
 import { EMAIL_CONFIG, type EmailCategory } from "./config";
 import { EMAIL_TYPES, type EmailType, type EmailPreferences, type SendEmailOptions, type EmailResult } from "./types";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-load to avoid build-time errors when env vars are not available
+let _resend: Resend | null = null;
+let _supabase: SupabaseClient | null = null;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getResend(): Resend {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY || "");
+  }
+  return _resend;
+}
+
+function getSupabaseClient(): SupabaseClient {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
 // Subject line generators
 const SUBJECTS: Record<string, string | ((d: Record<string, unknown>) => string)> = {
@@ -77,7 +91,7 @@ export class EmailService {
       const subject = this.getSubject(type, emailData);
 
       // Send via Resend
-      const { data: sendResult, error } = await resend.emails.send({
+      const { data: sendResult, error } = await getResend().emails.send({
         from,
         to,
         subject,
@@ -137,7 +151,7 @@ export class EmailService {
     userId?: string,
     organizationId?: string
   ): Promise<EmailResult> {
-    const { error } = await supabase.from("scheduled_emails").insert({
+    const { error } = await getSupabaseClient().from("scheduled_emails").insert({
       user_id: userId,
       organization_id: organizationId,
       email: to,
@@ -159,7 +173,7 @@ export class EmailService {
    * Get user email preferences
    */
   private async getPreferences(userId: string): Promise<EmailPreferences | null> {
-    const { data } = await supabase
+    const { data } = await getSupabaseClient()
       .from("email_preferences")
       .select("*")
       .eq("user_id", userId)
@@ -197,7 +211,7 @@ export class EmailService {
 
     if ("perHour" in limits) {
       const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const { count } = await supabase
+      const { count } = await getSupabaseClient()
         .from("email_logs")
         .select("*", { count: "exact", head: true })
         .eq("email", email)
@@ -297,7 +311,7 @@ export class EmailService {
     errorMessage?: string;
     templateData: Record<string, unknown>;
   }): Promise<void> {
-    await supabase.from("email_logs").insert({
+    await getSupabaseClient().from("email_logs").insert({
       user_id: log.userId,
       organization_id: log.organizationId,
       email: log.email,

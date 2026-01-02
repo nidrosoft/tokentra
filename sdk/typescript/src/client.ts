@@ -23,8 +23,25 @@ export class TokentraClient {
       timeout: config.timeout || 30000,
       batchSize: config.batchSize || 100,
       flushInterval: config.flushInterval || 5000,
+      maxQueueSize: config.maxQueueSize || 1000,
       debug: config.debug || false,
       onError: config.onError,
+      defaults: config.defaults || {},
+      resilience: config.resilience || {
+        maxRetries: 3,
+        retryDelayMs: 1000,
+        circuitBreakerThreshold: 5,
+        circuitBreakerResetMs: 30000,
+      },
+      privacy: config.privacy || {
+        mode: "metrics_only",
+        redactPatterns: [],
+      },
+      optimization: config.optimization || {
+        enabled: false,
+        enableRouting: false,
+        enableCaching: false,
+      },
     };
 
     this.startFlushTimer();

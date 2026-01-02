@@ -369,19 +369,20 @@ export interface DbProviderConnection {
   id: string;
   organization_id: string;
   provider: string;
-  status: string;
+  status: string | null;
   display_name: string | null;
-  credentials_encrypted: string;
-  settings: ConnectionSettings;
+  credentials_encrypted: unknown;
+  config: unknown;
+  settings?: unknown;
   last_sync_at: string | null;
   last_sync_records: number | null;
   last_sync_duration_ms: number | null;
   last_error: string | null;
   last_error_at: string | null;
-  consecutive_failures: number;
-  provider_metadata: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
+  consecutive_failures: number | null;
+  provider_metadata: unknown;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface DbSyncHistory {
