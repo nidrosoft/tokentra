@@ -1,5 +1,5 @@
 [build]
-  command = "npm ci && npm rebuild && npm run build"
+  command = "npm ci && npm rebuild && NEXT_TURBOPACK=0 npm run build"
   publish = ".next"
 
 [build.environment]
