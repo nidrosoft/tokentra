@@ -83,11 +83,11 @@ export const TeamsOverview: FC = () => {
   };
 
   const handleView = (id: string) => {
-    console.log("Viewing team:", id);
+    window.location.href = `/dashboard/teams/${id}`;
   };
 
   const handleEdit = (id: string) => {
-    console.log("Editing team:", id);
+    window.location.href = `/dashboard/teams/${id}/settings`;
   };
 
   const totalMembers = teams.reduce((sum, t) => sum + t.memberCount, 0);

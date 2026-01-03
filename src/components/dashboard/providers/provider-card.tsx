@@ -289,10 +289,10 @@ export const ProviderCard: FC<ProviderCardProps> = ({
       onOpenChange={setIsSettingsOpen}
       provider={provider}
       onSave={(providerId, credentials, settings) => {
-        console.log("Saving provider settings:", providerId, credentials, settings);
+        // TODO: Implement provider settings update API call
       }}
       onDisconnect={(providerId) => {
-        console.log("Disconnecting provider:", providerId);
+        // TODO: Implement provider disconnect API call
       }}
     />
     </>

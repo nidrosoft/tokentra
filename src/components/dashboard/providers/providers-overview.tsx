@@ -72,7 +72,7 @@ export const ProvidersOverview: FC = () => {
   }, [syncProviderMutation]);
 
   const handleSettings = (providerId: string) => {
-    console.log("Opening settings for:", providerId);
+    window.location.href = `/dashboard/providers/${providerId}/settings`;
   };
 
   const handleSyncAll = async () => {

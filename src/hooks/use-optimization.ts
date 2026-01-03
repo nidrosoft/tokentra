@@ -31,7 +31,23 @@ export function useOptimizationSummary() {
 export function useSavingsReport() {
   return useQuery({
     queryKey: ["optimization", "savings"],
-    queryFn: () => apiClient.get("/optimization/savings"),
+    queryFn: () => apiClient.get<{
+      savingsHistory: Array<{ date: string; savings: number; applied: number }>;
+      optimizationScore: {
+        score: number;
+        breakdown: {
+          modelEfficiency: number;
+          cachingUtilization: number;
+          promptOptimization: number;
+          costAllocation: number;
+        };
+      };
+      summary: {
+        totalApplied: number;
+        totalPending: number;
+        totalSavings: number;
+      };
+    }>("/optimization/savings"),
   });
 }
 

@@ -77,7 +77,7 @@ export const AlertsOverview: FC = () => {
   };
 
   const handleEdit = (id: string) => {
-    console.log("Editing alert:", id);
+    // Alert editing is handled via the AlertCard slideout
   };
 
   const handleCreateSubmit = (data: AlertFormData) => {

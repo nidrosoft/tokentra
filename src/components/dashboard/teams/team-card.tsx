@@ -169,10 +169,10 @@ export const TeamCard: FC<TeamCardProps> = ({
       onOpenChange={setIsEditOpen}
       team={team}
       onSave={(teamId, updates) => {
-        console.log("Saving team:", teamId, updates);
+        // TODO: Implement team update API call
       }}
       onDelete={(teamId) => {
-        console.log("Deleting team:", teamId);
+        // TODO: Implement team delete API call
       }}
     />
     </>

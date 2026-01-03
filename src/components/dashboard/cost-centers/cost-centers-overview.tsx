@@ -76,11 +76,11 @@ export const CostCentersOverview: FC = () => {
   };
 
   const handleView = (id: string) => {
-    console.log("Viewing cost center:", id);
+    // Cost center viewing is handled via the card
   };
 
   const handleEdit = (id: string) => {
-    console.log("Editing cost center:", id);
+    // Cost center editing is handled via the card slideout
   };
 
   const totalBudget = costCenters.reduce((sum, cc) => sum + (cc.monthlyBudget || 0), 0);

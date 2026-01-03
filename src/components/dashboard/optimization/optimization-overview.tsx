@@ -9,12 +9,8 @@ import { RecommendationList } from "./recommendation-list";
 import { SavingsChart } from "./savings-chart";
 import { EmptyState } from "../shared/empty-state";
 import { LoadingIndicator } from "@/components/application/loading-indicator/loading-indicator";
-import { useRecommendations, useOptimizationSummary, useApplyRecommendation, useDismissRecommendation, useAnalyzeOptimization } from "@/hooks/use-optimization";
+import { useRecommendations, useOptimizationSummary, useApplyRecommendation, useDismissRecommendation, useAnalyzeOptimization, useSavingsReport } from "@/hooks/use-optimization";
 import { useToastNotification } from "@/components/feedback/toast-notifications";
-import {
-  mockSavingsHistory,
-  mockOptimizationScore,
-} from "@/data/mock-recommendations";
 
 const ExportIcon = ({ className }: { className?: string }) => (
   <ExportSquare size={20} color="currentColor" className={className} variant="Outline" />
@@ -31,12 +27,21 @@ const RefreshIcon = ({ className }: { className?: string }) => (
 export const OptimizationOverview: FC = () => {
   const { showToast } = useToastNotification();
   
-  // Fetch recommendations from API
+  // Fetch recommendations and savings data from API
   const { data: recommendationsData, isLoading, refetch } = useRecommendations();
   const { data: summaryData } = useOptimizationSummary();
+  const { data: savingsData } = useSavingsReport();
   const applyMutation = useApplyRecommendation();
   const dismissMutation = useDismissRecommendation();
   const analyzeMutation = useAnalyzeOptimization();
+
+  // Extract savings data from API response
+  const savingsResponse = savingsData as unknown as { data?: { savingsHistory?: Array<{ date: string; savings: number; applied: number }>; optimizationScore?: { score: number; breakdown: { modelEfficiency: number; cachingUtilization: number; promptOptimization: number; costAllocation: number } } } } | undefined;
+  const savingsHistory = savingsResponse?.data?.savingsHistory || [];
+  const optimizationScore = savingsResponse?.data?.optimizationScore || {
+    score: 50,
+    breakdown: { modelEfficiency: 50, cachingUtilization: 50, promptOptimization: 50, costAllocation: 50 }
+  };
 
   // Define recommendation type for this component
   type LocalRec = {
@@ -179,10 +184,10 @@ export const OptimizationOverview: FC = () => {
         <>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <OptimizationScore
-              score={mockOptimizationScore.score}
-              breakdown={mockOptimizationScore.breakdown}
+              score={optimizationScore.score}
+              breakdown={optimizationScore.breakdown}
             />
-            <SavingsChart data={mockSavingsHistory} />
+            <SavingsChart data={savingsHistory} />
           </div>
 
           {/* Recommendations List */}

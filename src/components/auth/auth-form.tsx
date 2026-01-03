@@ -38,17 +38,13 @@ export const AuthForm = ({ defaultTab = "signup" }: AuthFormProps) => {
     try {
       if (isSignup) {
         // TODO: Implement signup with Supabase Auth
-        console.log("Signup data:", data);
-        // After successful signup, redirect to dashboard
         router.push("/dashboard");
       } else {
         // TODO: Implement login with NextAuth
-        console.log("Login data:", data);
-        // After successful login, redirect to dashboard
         router.push("/dashboard");
       }
-    } catch (error) {
-      console.error("Auth error:", error);
+    } catch {
+      // Auth error handled silently
     } finally {
       setIsLoading(false);
     }
@@ -58,9 +54,8 @@ export const AuthForm = ({ defaultTab = "signup" }: AuthFormProps) => {
     setIsLoading(true);
     try {
       // TODO: Implement Google OAuth with NextAuth
-      console.log("Google auth initiated");
-    } catch (error) {
-      console.error("Google auth error:", error);
+    } catch {
+      // Google auth error handled silently
     } finally {
       setIsLoading(false);
     }

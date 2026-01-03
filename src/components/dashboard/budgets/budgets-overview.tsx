@@ -96,7 +96,7 @@ export const BudgetsOverview: FC = () => {
   );
 
   const handleEdit = (budgetId: string) => {
-    console.log("Editing budget:", budgetId);
+    // Budget editing is handled via the BudgetCard slideout
   };
 
   const handleCreateSubmit = async (data: BudgetFormData) => {

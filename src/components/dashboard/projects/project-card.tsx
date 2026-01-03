@@ -185,10 +185,10 @@ export const ProjectCard: FC<ProjectCardProps> = ({
       project={project}
       teamName={teamName}
       onSave={(projectId, updates) => {
-        console.log("Saving project:", projectId, updates);
+        // TODO: Implement project update API call
       }}
       onDelete={(projectId) => {
-        console.log("Deleting project:", projectId);
+        // TODO: Implement project delete API call
       }}
     />
     </>

@@ -14,9 +14,7 @@ export const CreateBudgetPageContent: FC = () => {
   const router = useRouter();
 
   const handleSubmit = (data: BudgetFormData) => {
-    console.log("Creating budget:", data);
-    // In a real app, this would call an API
-    // For now, just redirect back to budgets page
+    // TODO: Call budget creation API
     router.push("/dashboard/budgets");
   };
 

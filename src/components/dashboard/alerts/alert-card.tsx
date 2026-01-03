@@ -168,10 +168,10 @@ export const AlertCard: FC<AlertCardProps> = ({
       onOpenChange={setIsEditOpen}
       alert={alert}
       onSave={(alertId, updates) => {
-        console.log("Saving alert:", alertId, updates);
+        // TODO: Implement alert update API call
       }}
       onDelete={(alertId) => {
-        console.log("Deleting alert:", alertId);
+        // TODO: Implement alert delete API call
       }}
     />
     </>

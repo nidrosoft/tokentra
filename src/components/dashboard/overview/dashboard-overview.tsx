@@ -330,7 +330,8 @@ export const DashboardOverview = () => {
           open={isAddProviderOpen}
           onOpenChange={setIsAddProviderOpen}
           onConnect={(provider, credentials) => {
-            console.log("Connected provider:", provider, credentials);
+            // Provider connection handled by dialog - refresh page to show new provider
+            window.location.reload();
           }}
         />
       </>
@@ -759,7 +760,8 @@ export const DashboardOverview = () => {
         open={isAddProviderOpen}
         onOpenChange={setIsAddProviderOpen}
         onConnect={(provider, credentials) => {
-          console.log("Connected provider:", provider, credentials);
+          // Provider connection handled by dialog - refresh page to show new provider
+          window.location.reload();
         }}
       />
 
@@ -780,8 +782,12 @@ export const DashboardOverview = () => {
         isOpen={isOptimizationSlideoutOpen}
         onOpenChange={setIsOptimizationSlideoutOpen}
         recommendations={recommendations}
-        onApply={(id) => console.log("Applied recommendation:", id)}
-        onDismiss={(id) => console.log("Dismissed recommendation:", id)}
+        onApply={(id) => {
+          // TODO: Implement recommendation apply API call
+        }}
+        onDismiss={(id) => {
+          // TODO: Implement recommendation dismiss API call
+        }}
       />
     </>
   );

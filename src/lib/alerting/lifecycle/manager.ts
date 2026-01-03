@@ -275,7 +275,7 @@ async function emitLifecycleEvent(
 
 async function resolvePagerDutyIncident(alertId: string): Promise<void> {
   // TODO: Implement PagerDuty incident resolution
-  console.log(`[AlertLifecycle] Would resolve PagerDuty incident for alert: ${alertId}`);
+  // PagerDuty integration pending - incident resolution will be handled here
 }
 
 /**

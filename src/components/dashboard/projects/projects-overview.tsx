@@ -97,11 +97,11 @@ export const ProjectsOverview: FC = () => {
   };
 
   const handleView = (id: string) => {
-    console.log("Viewing project:", id);
+    window.location.href = `/dashboard/projects/${id}`;
   };
 
   const handleEdit = (id: string) => {
-    console.log("Editing project:", id);
+    window.location.href = `/dashboard/projects/${id}/settings`;
   };
 
   const activeProjects = projects.filter((p) => p.status === "active").length;

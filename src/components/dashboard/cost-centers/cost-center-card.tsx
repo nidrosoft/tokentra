@@ -166,10 +166,10 @@ export const CostCenterCard: FC<CostCenterCardProps> = ({
       onOpenChange={setIsEditOpen}
       costCenter={costCenter}
       onSave={(costCenterId, updates) => {
-        console.log("Saving cost center:", costCenterId, updates);
+        // TODO: Implement cost center update API call
       }}
       onDelete={(costCenterId) => {
-        console.log("Deleting cost center:", costCenterId);
+        // TODO: Implement cost center delete API call
       }}
     />
     </>
