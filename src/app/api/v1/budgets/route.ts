@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 import { createBudgetService, type CreateBudgetInput, type BudgetQueryOptions } from "@/lib/budget";
+import { validateRequestBody } from "@/lib/api/validate-request";
+
+const createBudgetBodySchema = z.object({
+  organization_id: z.string().uuid("Invalid organization ID"),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  type: z.enum(["organization", "team", "project", "cost_center", "provider", "model", "api_key", "user"]),
+  team_id: z.string().uuid().optional(),
+  project_id: z.string().uuid().optional(),
+  cost_center_id: z.string().uuid().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  api_key_id: z.string().uuid().optional(),
+  user_id: z.string().uuid().optional(),
+  amount: z.number().positive("Amount must be positive"),
+  currency: z.string().default("USD"),
+  period: z.enum(["weekly", "monthly", "quarterly", "annual", "custom"]),
+  period_start: z.string().datetime().optional(),
+  period_end: z.string().datetime().optional(),
+  mode: z.enum(["soft", "hard", "throttle"]).default("soft"),
+  throttle_percentage: z.number().min(0).max(100).optional(),
+  rollover_enabled: z.boolean().optional(),
+  rollover_percentage: z.number().min(0).max(100).optional(),
+  rollover_cap: z.number().positive().optional(),
+  thresholds: z.array(z.object({
+    percentage: z.number().min(0).max(100),
+    action: z.enum(["alert", "throttle", "block"]).optional(),
+    alertEnabled: z.boolean().optional(),
+  })).optional(),
+  tags: z.array(z.string()).optional(),
+  metadata: z.record(z.unknown()).optional(),
+  created_by: z.string().uuid().optional(),
+});
 
 /**
  * GET /api/v1/budgets
@@ -72,44 +106,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceClient();
-    const body = await request.json();
-
-    const { organization_id, ...budgetData } = body;
-
-    if (!organization_id) {
-      return NextResponse.json(
-        { success: false, error: "organization_id is required" },
-        { status: 400 }
-      );
+    
+    // Validate request body with Zod
+    const validation = await validateRequestBody(request, createBudgetBodySchema);
+    if (!validation.success) {
+      return validation.response;
     }
-
-    if (!budgetData.name) {
-      return NextResponse.json(
-        { success: false, error: "name is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!budgetData.amount || budgetData.amount <= 0) {
-      return NextResponse.json(
-        { success: false, error: "amount must be greater than 0" },
-        { status: 400 }
-      );
-    }
-
-    if (!budgetData.type) {
-      return NextResponse.json(
-        { success: false, error: "type is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!budgetData.period) {
-      return NextResponse.json(
-        { success: false, error: "period is required" },
-        { status: 400 }
-      );
-    }
+    const { organization_id, ...budgetData } = validation.data;
 
     const input: CreateBudgetInput = {
       name: budgetData.name,

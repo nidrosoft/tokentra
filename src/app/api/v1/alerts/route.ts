@@ -6,9 +6,40 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentUserWithOrg } from "@/lib/auth/session";
+import { validateRequestBody } from "@/lib/api/validate-request";
 import type { AlertRule, AlertRuleConfig, NotificationChannel } from "@/lib/alerting/types";
+
+const createAlertBodySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  type: z.enum(["spend_threshold", "spend_anomaly", "budget_threshold", "forecast_exceeded", "provider_error", "usage_spike"]),
+  description: z.string().optional(),
+  config: z.object({
+    metric: z.string().optional(),
+    operator: z.enum(["gt", "gte", "lt", "lte", "eq"]).optional(),
+    threshold: z.number().optional(),
+    value: z.number().optional(),
+    timeWindow: z.string().optional(),
+  }),
+  condition: z.object({
+    metric: z.string(),
+    operator: z.enum(["gt", "gte", "lt", "lte", "eq"]),
+    value: z.number(),
+    timeWindow: z.string().optional(),
+  }).optional(),
+  channels: z.array(z.object({
+    type: z.enum(["email", "slack", "pagerduty", "webhook"]),
+    config: z.record(z.string()).optional(),
+  })).optional(),
+  enabled: z.boolean().optional().default(true),
+  cooldownMinutes: z.number().int().positive().optional(),
+  maxAlertsPerHour: z.number().int().positive().optional(),
+  activeHours: z.object({ start: z.number(), end: z.number() }).optional(),
+  activeDays: z.array(z.number().int().min(0).max(6)).optional(),
+  createdBy: z.string().optional(),
+});
 
 /**
  * GET /api/v1/alerts
@@ -80,15 +111,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceClient();
-    const body = await request.json();
-
-    // Validate required fields
-    if (!body.name || !body.type || !body.config) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields: name, type, config" },
-        { status: 400 }
-      );
+    
+    // Validate request body with Zod
+    const validation = await validateRequestBody(request, createAlertBodySchema);
+    if (!validation.success) {
+      return validation.response;
     }
+    const body = validation.data;
 
     // Get organization ID from authenticated user
     const user = await getCurrentUserWithOrg();
