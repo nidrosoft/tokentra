@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-
-const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
-const DEMO_USER_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+import { getCurrentUserWithOrg } from "@/lib/auth/session";
 
 function getSupabaseAdmin() {
   return createClient(
@@ -14,9 +12,17 @@ function getSupabaseAdmin() {
 
 export async function GET(request: NextRequest) {
   try {
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    
     const supabase = getSupabaseAdmin();
-    const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get("organizationId") || DEMO_ORG_ID;
 
     const { data, error } = await supabase
       .from("api_keys")
@@ -62,8 +68,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, scopes = ["read"], expiresAt } = body;
 
-    const orgId = body.organizationId || DEMO_ORG_ID;
-    const userId = body.userId || DEMO_USER_ID;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId || !user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    const userId = user.id;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -117,7 +131,15 @@ export async function DELETE(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const keyId = searchParams.get("id");
-    const userId = searchParams.get("userId") || DEMO_USER_ID;
+    
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
 
     if (!keyId) {
       return NextResponse.json({ error: "Key ID is required" }, { status: 400 });

@@ -3,7 +3,6 @@ import type { NextRequest } from "next/server";
 
 const publicPaths = [
   "/",  // Auth page is the entry point
-  "/dashboard",  // Temporarily allow dashboard for testing
   "/forgot-password",
   "/reset-password",
   "/verify-email",

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
+import { getCurrentUserWithOrg } from "@/lib/auth/session";
 
 function getSupabaseAdmin() {
   return createClient(
@@ -12,9 +11,17 @@ function getSupabaseAdmin() {
 
 export async function GET(request: NextRequest) {
   try {
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    
     const supabase = getSupabaseAdmin();
-    const { searchParams } = new URL(request.url);
-    const orgId = searchParams.get("organizationId") || DEMO_ORG_ID;
 
     const { data, error } = await supabase
       .from("integration_settings")
@@ -59,8 +66,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { integrationType, name, config = {} } = body;
 
-    const orgId = body.organizationId || DEMO_ORG_ID;
-    const userId = body.userId;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    const userId = user.id;
 
     if (!integrationType || !name) {
       return NextResponse.json({ error: "Integration type and name are required" }, { status: 400 });

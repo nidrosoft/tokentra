@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { inAppNotificationService } from "@/lib/notifications/in-app-notification-service";
-
-const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
-const DEMO_USER_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+import { getCurrentUserWithOrg } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    
-    const orgId = searchParams.get("organizationId") || DEMO_ORG_ID;
-    const userId = searchParams.get("userId") || DEMO_USER_ID;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId || !user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    const userId = user.id;
 
     const unreadCount = await inAppNotificationService.getUnreadCount(userId, orgId);
 

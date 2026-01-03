@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notificationPreferencesService } from "@/lib/notifications/notification-preferences-service";
-
-const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
-const DEMO_USER_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+import { getCurrentUserWithOrg } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    
-    const orgId = searchParams.get("organizationId") || DEMO_ORG_ID;
-    const userId = searchParams.get("userId") || DEMO_USER_ID;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId || !user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    const userId = user.id;
 
     const preferences = await notificationPreferencesService.getPreferences(userId, orgId);
 
@@ -25,11 +29,18 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { searchParams } = new URL(request.url);
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId || !user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
+    const userId = user.id;
     
-    const orgId = searchParams.get("organizationId") || body.orgId || DEMO_ORG_ID;
-    const userId = searchParams.get("userId") || body.userId || DEMO_USER_ID;
+    const body = await request.json();
 
     const preferences = await notificationPreferencesService.updatePreferences(
       userId,

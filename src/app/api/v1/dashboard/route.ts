@@ -16,21 +16,15 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Try to get authenticated user, fall back to demo org in development
+    // Get organization ID from authenticated user
     const user = await getCurrentUserWithOrg();
-    let organizationId: string;
-    
-    if (user?.organizationId) {
-      organizationId = user.organizationId;
-    } else if (process.env.NODE_ENV === 'development' && process.env.DEMO_ORGANIZATION_ID) {
-      // Use demo organization in development when not authenticated
-      organizationId = process.env.DEMO_ORGANIZATION_ID;
-    } else {
+    if (!user?.organizationId) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        { success: false, error: "Unauthorized - no organization found" },
         { status: 401 }
       );
     }
+    const organizationId = user.organizationId;
 
     // Fetch all dashboard data in parallel
     const [stats, providers, consumers, alerts, recommendations, trends] = await Promise.all([

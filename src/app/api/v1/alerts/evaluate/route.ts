@@ -12,9 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { createAlertEngine } from "@/lib/alerting";
-
-// Demo organization ID for development
-const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
+import { getCurrentUserWithOrg } from "@/lib/auth/session";
 
 /**
  * POST /api/v1/alerts/evaluate
@@ -25,8 +23,15 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient();
     const body = await request.json().catch(() => ({}));
 
-    // Get organization ID
-    const orgId = body.orgId || DEMO_ORG_ID;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
 
     // Create alert engine
     const engine = createAlertEngine(supabase);

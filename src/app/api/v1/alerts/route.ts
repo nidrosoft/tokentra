@@ -7,10 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentUserWithOrg } from "@/lib/auth/session";
 import type { AlertRule, AlertRuleConfig, NotificationChannel } from "@/lib/alerting/types";
-
-// Demo organization ID for development
-const DEMO_ORG_ID = "b1c2d3e4-f5a6-7890-bcde-f12345678901";
 
 /**
  * GET /api/v1/alerts
@@ -21,8 +19,15 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceClient();
     const { searchParams } = new URL(request.url);
     
-    // Get organization ID (from auth or demo)
-    const orgId = searchParams.get("orgId") || DEMO_ORG_ID;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
     const enabled = searchParams.get("enabled");
     const type = searchParams.get("type");
 
@@ -85,8 +90,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get organization ID (from auth or demo)
-    const orgId = body.orgId || DEMO_ORG_ID;
+    // Get organization ID from authenticated user
+    const user = await getCurrentUserWithOrg();
+    if (!user?.organizationId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized - no organization found" },
+        { status: 401 }
+      );
+    }
+    const orgId = user.organizationId;
 
     // Build condition from config for legacy compatibility
     const condition = body.condition || {
